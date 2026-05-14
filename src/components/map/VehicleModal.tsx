@@ -3,18 +3,18 @@
 import { useState, useEffect } from "react";
 import {
   X, Car, Wrench, AlertTriangle, FileText, Clock,
-  Save, CheckCircle, Edit3,
+  Save, CheckCircle, Edit3, Plus,
 } from "lucide-react";
 import {
   doc, updateDoc, serverTimestamp, collection,
-  query, where, orderBy, getDocs, addDoc,
+  query, where, orderBy, getDocs, addDoc, onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useZonesStore } from "@/store/zonesStore";
 import { useVehiclesStore } from "@/store/vehiclesStore";
 import { toast } from "react-toastify";
-import type { Vehicle, ServiceOrder, DamageReport, VehicleLog, VehicleStatus, VehicleType } from "@/types";
+import type { Vehicle, ServiceOrder, DamageReport, VehicleLog, VehicleStatus, VehicleType, ServiceOrderType } from "@/types";
 import { STATUS_COLORS, STATUS_LABELS } from "./VehicleTile";
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
@@ -295,91 +295,244 @@ function TabDane({ vehicle }: { vehicle: Vehicle }) {
   );
 }
 
-function TabZlecenia({ vehicleId }: { vehicleId: string }) {
+const ORDER_TYPE_LABELS: Record<string, string> = { pdi: "PDI", wash: "Mycie", ceramic: "Ceramika", accessory: "Akcesoria", other: "Inne" };
+const ORDER_STATUS_LABELS: Record<string, string> = { ordered: "Zlecone", in_progress: "W toku", partial: "Częściowo", ready: "Gotowe" };
+const ORDER_STATUS_COLORS: Record<string, string> = { ordered: "#3b82f6", in_progress: "#eab308", partial: "#a78bfa", ready: "#22c55e" };
+
+function TabZlecenia({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehicle }) {
+  const { user } = useAuthStore();
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [type, setType] = useState<ServiceOrderType>("pdi");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getDocs(
-      query(collection(db, "serviceOrders"), where("vehicleId", "==", vehicleId), orderBy("createdAt", "desc"))
-    ).then((snap) => {
-      setOrders(snap.docs.map((d) => d.data() as ServiceOrder));
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    const unsub = onSnapshot(
+      query(collection(db, "serviceOrders"), where("vehicleId", "==", vehicleId), orderBy("createdAt", "desc")),
+      (snap) => { setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ServiceOrder))); setLoading(false); },
+      () => setLoading(false)
+    );
+    return unsub;
   }, [vehicleId]);
+
+  async function createOrder(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !description.trim()) return;
+    setSaving(true);
+    try {
+      const ref = doc(collection(db, "serviceOrders"));
+      await addDoc(collection(db, "serviceOrders"), {
+        id: ref.id,
+        vehicleId,
+        vehicleVin: vehicle.vin,
+        vehicleModel: vehicle.model,
+        type,
+        status: "ordered",
+        description: description.trim(),
+        orderedBy: user.uid,
+        orderedByName: user.displayName ?? "Nieznany",
+        assignedMechanicUid: null,
+        assignedMechanicName: null,
+        plannedDeliveryDate: null,
+        completionDate: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "vehicles", vehicleId), {
+        activeServiceOrderIds: [...(vehicle.activeServiceOrderIds ?? []), ref.id],
+        updatedAt: serverTimestamp(), updatedBy: user.uid,
+      });
+      setDescription(""); setShowForm(false);
+    } catch { /* toast shown by parent */ } finally { setSaving(false); }
+  }
 
   if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-muted)" }}>Ładowanie…</div>;
 
-  if (orders.length === 0) {
-    return (
-      <div className="py-12 flex flex-col items-center gap-2">
-        <Wrench size={32} style={{ color: "var(--color-muted)", opacity: 0.4 }} />
-        <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak zleceń serwisowych</p>
-        <p className="text-xs" style={{ color: "var(--color-muted2)" }}>Zarządzanie zleceniami — Etap 6</p>
-      </div>
-    );
-  }
-
-  const STATUS_ORDER_LABEL: Record<string, string> = {
-    ordered: "Zlecone", in_progress: "W toku", partial: "Częściowo", ready: "Gotowe",
-  };
-
   return (
-    <div className="flex flex-col gap-2">
-      {orders.map((o) => (
-        <div key={o.id} className="rounded-xl px-3 py-2.5"
-             style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>{o.type.toUpperCase()}</p>
-            <span className="text-[10px] px-1.5 py-0.5 rounded"
-                  style={{ background: "var(--bg-border)", color: "var(--color-muted)" }}>
-              {STATUS_ORDER_LABEL[o.status] ?? o.status}
-            </span>
+    <div className="flex flex-col gap-3">
+      {(user?.role === "logistics" || user?.role === "mechanic") && !showForm && (
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold w-full justify-center"
+          style={{ background: "var(--bg-primary)", border: "1px dashed var(--bg-border2)", color: "var(--color-accent)" }}>
+          <Plus size={12} /> Nowe zlecenie
+        </button>
+      )}
+
+      {showForm && (
+        <form onSubmit={createOrder} className="flex flex-col gap-2 rounded-xl p-3"
+              style={{ background: "var(--bg-primary)", border: "1px solid var(--color-accent)" }}>
+          <select value={type} onChange={(e) => setType(e.target.value as ServiceOrderType)}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}>
+            {Object.entries(ORDER_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} required
+            placeholder="Opis zlecenia…" rows={2}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }} />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setShowForm(false)}
+              className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: "var(--color-muted)" }}>Anuluj</button>
+            <button type="submit" disabled={saving || !description.trim()}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ background: "var(--color-accent)", color: "#fff" }}>
+              {saving ? "…" : "Dodaj"}
+            </button>
           </div>
-          <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{o.description}</p>
+        </form>
+      )}
+
+      {orders.length === 0 && !showForm && (
+        <div className="py-8 flex flex-col items-center gap-2">
+          <Wrench size={28} style={{ color: "var(--color-muted)", opacity: 0.4 }} />
+          <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak zleceń serwisowych</p>
         </div>
-      ))}
+      )}
+
+      {orders.map((o) => {
+        const sc = ORDER_STATUS_COLORS[o.status] ?? "#64748b";
+        return (
+          <div key={o.id} className="rounded-xl px-3 py-2.5"
+               style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                {ORDER_TYPE_LABELS[o.type] ?? o.type}
+              </p>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ background: `${sc}20`, color: sc }}>
+                {ORDER_STATUS_LABELS[o.status] ?? o.status}
+              </span>
+            </div>
+            <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{o.description}</p>
+            {o.assignedMechanicName && (
+              <p className="text-[10px] mt-1" style={{ color: "var(--color-muted2)" }}>
+                Mechanik: {o.assignedMechanicName}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function TabSzkody({ vehicleId }: { vehicleId: string }) {
+const DAMAGE_STAGE_LABELS: Record<string, string> = {
+  to_report: "Do zgłoszenia", reported: "Zgłoszona",
+  accepted_pending: "Do rozliczenia", resolved: "Zamknięta ✓",
+};
+const DAMAGE_STAGE_COLORS: Record<string, string> = {
+  to_report: "#64748b", reported: "#eab308", accepted_pending: "#a78bfa", resolved: "#22c55e",
+};
+
+function TabSzkody({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehicle }) {
+  const { user } = useAuthStore();
   const [reports, setReports] = useState<DamageReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getDocs(
-      query(collection(db, "damageReports"), where("vehicleId", "==", vehicleId), orderBy("reportedAt", "desc"))
-    ).then((snap) => {
-      setReports(snap.docs.map((d) => d.data() as DamageReport));
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    const unsub = onSnapshot(
+      query(collection(db, "damageReports"), where("vehicleId", "==", vehicleId), orderBy("createdAt", "desc")),
+      (snap) => { setReports(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DamageReport))); setLoading(false); },
+      () => setLoading(false)
+    );
+    return unsub;
   }, [vehicleId]);
+
+  async function createReport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !location.trim() || !description.trim()) return;
+    setSaving(true);
+    try {
+      await addDoc(collection(db, "damageReports"), {
+        vehicleId,
+        vehicleVin: vehicle.vin,
+        vehicleModel: vehicle.model,
+        stage: "reported",
+        stageHistory: [{ stage: "reported", changedBy: user.uid, changedAt: serverTimestamp() }],
+        damageLocation: location.trim(),
+        description: description.trim(),
+        photoUrls: [],
+        documentUrls: [],
+        physicallyRepaired: false,
+        financiallySettled: false,
+        closedAt: null,
+        reportedBy: user.uid,
+        reportedByName: user.displayName ?? "Nieznany",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "vehicles", vehicleId), {
+        status: "damaged",
+        updatedAt: serverTimestamp(), updatedBy: user.uid,
+      });
+      setLocation(""); setDescription(""); setShowForm(false);
+    } catch { /* ignore */ } finally { setSaving(false); }
+  }
 
   if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-muted)" }}>Ładowanie…</div>;
 
-  if (reports.length === 0) {
-    return (
-      <div className="py-12 flex flex-col items-center gap-2">
-        <CheckCircle size={32} style={{ color: "var(--color-success)", opacity: 0.5 }} />
-        <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak zgłoszonych szkód</p>
-        <p className="text-xs" style={{ color: "var(--color-muted2)" }}>Moduł szkód — Etap 6</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      {reports.map((r) => (
-        <div key={r.id} className="rounded-xl px-3 py-2.5"
-             style={{ background: "var(--bg-primary)", border: "1px solid rgba(239,68,68,.3)" }}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold" style={{ color: "#ef4444" }}>{r.damageLocation}</p>
-            <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>{r.stage}</span>
+    <div className="flex flex-col gap-3">
+      {!showForm && (
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold w-full justify-center"
+          style={{ background: "var(--bg-primary)", border: "1px dashed rgba(239,68,68,.4)", color: "#ef4444" }}>
+          <AlertTriangle size={12} /> Zgłoś szkodę
+        </button>
+      )}
+
+      {showForm && (
+        <form onSubmit={createReport} className="flex flex-col gap-2 rounded-xl p-3"
+              style={{ background: "var(--bg-primary)", border: "1px solid rgba(239,68,68,.4)" }}>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} required
+            placeholder="Lokalizacja szkody (np. zderzak przód)" maxLength={80}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }} />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} required
+            placeholder="Opis uszkodzenia…" rows={2}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }} />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setShowForm(false)}
+              className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: "var(--color-muted)" }}>Anuluj</button>
+            <button type="submit" disabled={saving || !location.trim() || !description.trim()}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ background: "#ef4444", color: "#fff" }}>
+              {saving ? "…" : "Zgłoś"}
+            </button>
           </div>
-          <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{r.description}</p>
+        </form>
+      )}
+
+      {reports.length === 0 && !showForm && (
+        <div className="py-8 flex flex-col items-center gap-2">
+          <CheckCircle size={28} style={{ color: "var(--color-success)", opacity: 0.5 }} />
+          <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak zgłoszonych szkód</p>
         </div>
-      ))}
+      )}
+
+      {reports.map((r) => {
+        const sc = DAMAGE_STAGE_COLORS[r.stage] ?? "#64748b";
+        return (
+          <div key={r.id} className="rounded-xl px-3 py-2.5"
+               style={{ background: "var(--bg-primary)", border: `1px solid ${sc}40` }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold" style={{ color: "#ef4444" }}>{r.damageLocation}</p>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ background: `${sc}20`, color: sc }}>
+                {DAMAGE_STAGE_LABELS[r.stage] ?? r.stage}
+              </span>
+            </div>
+            <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{r.description}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -572,8 +725,8 @@ export default function VehicleModal({ vehicleId, onClose }: Props) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
           {tab === "dane"      && <TabDane vehicle={vehicle} />}
-          {tab === "zlecenia"  && <TabZlecenia vehicleId={vehicleId} />}
-          {tab === "szkody"    && <TabSzkody vehicleId={vehicleId} />}
+          {tab === "zlecenia"  && <TabZlecenia vehicleId={vehicleId} vehicle={vehicle} />}
+          {tab === "szkody"    && <TabSzkody vehicleId={vehicleId} vehicle={vehicle} />}
           {tab === "dokumenty" && <TabDokumenty vehicleId={vehicleId} />}
           {tab === "historia"  && <TabHistoria vehicleId={vehicleId} />}
         </div>
