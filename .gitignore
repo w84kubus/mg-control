@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files – NEVER commit Firebase keys
+.env
+.env.local
+.env.*.local
+# allow the example file
+!.env.local.example
 
 # vercel
 .vercel
