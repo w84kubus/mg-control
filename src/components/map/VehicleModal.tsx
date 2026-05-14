@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   X, Car, Wrench, AlertTriangle, FileText, Clock,
-  Save, CheckCircle, Edit3, Plus, Upload, Trash2, Download,
+  Save, CheckCircle, Edit3, Plus, Upload, Trash2, Download, LogOut,
 } from "lucide-react";
 import {
   doc, updateDoc, serverTimestamp, collection,
@@ -268,7 +268,7 @@ function TabDane({ vehicle }: { vehicle: Vehicle }) {
       </div>
 
       {/* Edit / Save */}
-      {user?.role === "logistics" || user?.role === "salesperson" ? (
+      {(user?.role === "logistics" || user?.role === "salesperson") && vehicle.status !== "delivered" ? (
         <div className="flex gap-2">
           {editing ? (
             <>
@@ -292,7 +292,114 @@ function TabDane({ vehicle }: { vehicle: Vehicle }) {
           )}
         </div>
       ) : null}
+
+      {/* Release vehicle */}
+      {user?.role === "logistics" && vehicle.status !== "delivered" && !editing && (
+        <ReleaseSection vehicle={vehicle} user={user} />
+      )}
+
+      {vehicle.status === "delivered" && (
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+             style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)" }}>
+          <CheckCircle size={14} style={{ color: "var(--color-success)", flexShrink: 0 }} />
+          <p className="text-xs font-semibold" style={{ color: "var(--color-success)" }}>
+            Pojazd wydany
+          </p>
+        </div>
+      )}
     </div>
+  );
+}
+
+function ReleaseSection({ vehicle, user }: { vehicle: Vehicle; user: { uid: string; displayName?: string | null; role: string } }) {
+  const [open, setOpen] = useState(false);
+  const [salesperson, setSalesperson] = useState(vehicle.assignedSalespersonName ?? "");
+  const [customerName, setCustomerName] = useState("");
+  const [recipientType, setRecipientType] = useState<"individual" | "fleet" | "branch" | "demo">("individual");
+  const [releasing, setReleasing] = useState(false);
+
+  async function release(e: React.FormEvent) {
+    e.preventDefault();
+    setReleasing(true);
+    try {
+      await updateDoc(doc(db, "vehicles", vehicle.id), {
+        status: "delivered",
+        assignedSalespersonName: salesperson.trim() || null,
+        deliveredAt: serverTimestamp(),
+        deliveredBy: user.uid,
+        deliveredByName: user.displayName ?? "Nieznany",
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      });
+      await addDoc(collection(db, "vehicles", vehicle.id, "logs"), {
+        vehicleId: vehicle.id,
+        type: "status_change",
+        action: "Wydanie pojazdu",
+        details: `Odbiorca: ${customerName.trim() || "—"} (${RECIPIENT_LABELS[recipientType]})${salesperson.trim() ? ` · Sprzedawca: ${salesperson.trim()}` : ""}`,
+        performedBy: user.uid,
+        performedByName: user.displayName ?? "Nieznany",
+        performedAt: serverTimestamp(),
+        metadata: { recipientType, customerName: customerName.trim() || null },
+      });
+      toast.success(`Pojazd ${vehicle.vinShort} wydany.`);
+      setOpen(false);
+    } catch {
+      toast.error("Nie udało się wydać pojazdu.");
+    } finally {
+      setReleasing(false);
+    }
+  }
+
+  const RECIPIENT_LABELS = { individual: "Klient indywidualny", fleet: "Flota", branch: "Oddział", demo: "Demo" };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)}
+        className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+        style={{ background: "var(--color-success)", color: "#fff" }}>
+        <LogOut size={14} /> Wydaj pojazd
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={release} className="flex flex-col gap-3 p-3 rounded-xl"
+          style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)" }}>
+      <p className="text-xs font-bold" style={{ color: "var(--color-success)" }}>Potwierdź wydanie pojazdu</p>
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-semibold uppercase" style={{ color: "var(--color-muted)" }}>Typ odbiorcy</label>
+        <select value={recipientType} onChange={(e) => setRecipientType(e.target.value as typeof recipientType)}
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+          style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}>
+          {(Object.entries(RECIPIENT_LABELS) as [typeof recipientType, string][]).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-semibold uppercase" style={{ color: "var(--color-muted)" }}>Nazwa klienta (opcja)</label>
+        <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={80}
+          placeholder="Imię i nazwisko / firma"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+          style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }} />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-semibold uppercase" style={{ color: "var(--color-muted)" }}>Sprzedawca (opcja)</label>
+        <input value={salesperson} onChange={(e) => setSalesperson(e.target.value)} maxLength={60}
+          placeholder="Imię i nazwisko sprzedawcy"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+          style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }} />
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setOpen(false)} disabled={releasing}
+          className="flex-1 py-2 rounded-lg text-sm" style={{ color: "var(--color-muted)" }}>Anuluj</button>
+        <button type="submit" disabled={releasing}
+          className="flex-1 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+          style={{ background: "var(--color-success)", color: "#fff" }}>
+          <LogOut size={13} /> {releasing ? "Wydawanie…" : "Potwierdź"}
+        </button>
+      </div>
+    </form>
   );
 }
 
