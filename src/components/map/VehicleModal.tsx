@@ -1,20 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X, Car, Wrench, AlertTriangle, FileText, Clock,
-  Save, CheckCircle, Edit3, Plus,
+  Save, CheckCircle, Edit3, Plus, Upload, Trash2, Download,
 } from "lucide-react";
 import {
   doc, updateDoc, serverTimestamp, collection,
-  query, where, orderBy, getDocs, addDoc, onSnapshot,
+  query, where, orderBy, getDocs, addDoc, onSnapshot, deleteDoc, increment,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useZonesStore } from "@/store/zonesStore";
 import { useVehiclesStore } from "@/store/vehiclesStore";
 import { toast } from "react-toastify";
-import type { Vehicle, ServiceOrder, DamageReport, VehicleLog, VehicleStatus, VehicleType, ServiceOrderType } from "@/types";
+import type { Vehicle, ServiceOrder, DamageReport, VehicleLog, VehicleDocument, DocumentType, VehicleStatus, VehicleType, ServiceOrderType } from "@/types";
 import { STATUS_COLORS, STATUS_LABELS } from "./VehicleTile";
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
@@ -537,14 +538,173 @@ function TabSzkody({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehicle
   );
 }
 
-function TabDokumenty({ vehicleId }: { vehicleId: string }) {
+const DOC_TYPE_LABELS: Record<DocumentType, string> = {
+  list_przewozowy: "Lista przewozowa",
+  protokol_odbioru: "Protokół odbioru",
+  faktura: "Faktura",
+  inne: "Inne",
+};
+
+function formatBytes(b: number) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`;
+  return `${(b / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function TabDokumenty({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehicle }) {
+  const { user } = useAuthStore();
+  const [docs, setDocs] = useState<VehicleDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState<DocumentType>("inne");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, "documents"), where("vehicleId", "==", vehicleId), orderBy("uploadedAt", "desc")),
+      (snap) => { setDocs(snap.docs.map((d) => ({ id: d.id, ...d.data() } as VehicleDocument))); setLoading(false); },
+      () => setLoading(false)
+    );
+    return unsub;
+  }, [vehicleId]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.size > 20 * 1024 * 1024) { toast.error("Plik nie może być większy niż 20 MB."); return; }
+
+    setUploading(true);
+    try {
+      const path = `documents/${vehicleId}/${Date.now()}_${file.name}`;
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, file);
+      const fileUrl = await getDownloadURL(sRef);
+
+      const docRef = await addDoc(collection(db, "documents"), {
+        vehicleId,
+        vehicleVin: vehicle.vin,
+        deliveryId: null,
+        type: docType,
+        displayName: file.name,
+        fileName: file.name,
+        fileUrl,
+        filePath: path,
+        fileSize: file.size,
+        mimeType: file.type,
+        uploadedBy: user.uid,
+        uploadedByName: user.displayName ?? "Nieznany",
+        uploadedAt: serverTimestamp(),
+        notes: "",
+      });
+
+      await updateDoc(doc(db, "vehicles", vehicleId), {
+        documentCount: increment(1),
+        hasDocument: true,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      });
+
+      await addDoc(collection(db, "vehicles", vehicleId, "logs"), {
+        vehicleId,
+        type: "document_upload",
+        action: "Dodano dokument",
+        details: `${DOC_TYPE_LABELS[docType]}: ${file.name}`,
+        performedBy: user.uid,
+        performedByName: user.displayName ?? "Nieznany",
+        performedAt: serverTimestamp(),
+        metadata: { documentId: docRef.id },
+      });
+
+      toast.success(`Wgrano: ${file.name}`);
+    } catch {
+      toast.error("Błąd podczas wgrywania pliku.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleDelete(document: VehicleDocument) {
+    if (!user) return;
+    try {
+      await deleteObject(storageRef(storage, document.filePath));
+      await deleteDoc(doc(db, "documents", document.id));
+      const remaining = docs.length - 1;
+      await updateDoc(doc(db, "vehicles", vehicleId), {
+        documentCount: increment(-1),
+        hasDocument: remaining > 0,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      });
+      toast.success("Dokument usunięty.");
+    } catch {
+      toast.error("Nie udało się usunąć dokumentu.");
+    }
+  }
+
+  if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-muted)" }}>Ładowanie…</div>;
+
+  const canUpload = user?.role === "logistics" || user?.role === "salesperson";
+
   return (
-    <div className="py-12 flex flex-col items-center gap-2">
-      <FileText size={32} style={{ color: "var(--color-muted)", opacity: 0.4 }} />
-      <p className="text-sm" style={{ color: "var(--color-muted)" }}>Dokumenty i zdjęcia</p>
-      <p className="text-xs text-center max-w-xs" style={{ color: "var(--color-muted2)" }}>
-        Upload dokumentów do Firebase Storage zostanie dodany w Etapie 7.
-      </p>
+    <div className="flex flex-col gap-3">
+      {/* Upload control */}
+      {canUpload && (
+        <div className="flex gap-2">
+          <select
+            value={docType}
+            onChange={(e) => setDocType(e.target.value as DocumentType)}
+            className="flex-1 px-3 py-2 rounded-xl text-xs outline-none"
+            style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}
+          >
+            {(Object.entries(DOC_TYPE_LABELS) as [DocumentType, string][]).map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
+            style={{ background: "var(--color-accent)", color: "#fff" }}
+          >
+            <Upload size={12} /> {uploading ? "Wgrywanie…" : "Wgraj"}
+          </button>
+          <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" onChange={handleUpload} />
+        </div>
+      )}
+
+      {docs.length === 0 && (
+        <div className="py-12 flex flex-col items-center gap-2">
+          <FileText size={32} style={{ color: "var(--color-muted)", opacity: 0.4 }} />
+          <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak dokumentów</p>
+          {canUpload && <p className="text-xs" style={{ color: "var(--color-muted2)" }}>Wgraj plik używając formularza powyżej</p>}
+        </div>
+      )}
+
+      {docs.map((d) => (
+        <div key={d.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+             style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}>
+          <FileText size={18} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold truncate" style={{ color: "var(--color-text)" }}>{d.displayName}</p>
+            <p className="text-[10px]" style={{ color: "var(--color-muted)" }}>
+              {DOC_TYPE_LABELS[d.type] ?? d.type} · {formatBytes(d.fileSize)}
+            </p>
+          </div>
+          <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
+             className="w-7 h-7 flex items-center justify-center rounded-lg"
+             style={{ background: "var(--bg-surface)", color: "var(--color-accent)" }}>
+            <Download size={13} />
+          </a>
+          {canUpload && (
+            <button onClick={() => handleDelete(d)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg"
+              style={{ background: "var(--bg-surface)", color: "var(--color-danger)" }}>
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -727,7 +887,7 @@ export default function VehicleModal({ vehicleId, onClose }: Props) {
           {tab === "dane"      && <TabDane vehicle={vehicle} />}
           {tab === "zlecenia"  && <TabZlecenia vehicleId={vehicleId} vehicle={vehicle} />}
           {tab === "szkody"    && <TabSzkody vehicleId={vehicleId} vehicle={vehicle} />}
-          {tab === "dokumenty" && <TabDokumenty vehicleId={vehicleId} />}
+          {tab === "dokumenty" && <TabDokumenty vehicleId={vehicleId} vehicle={vehicle} />}
           {tab === "historia"  && <TabHistoria vehicleId={vehicleId} />}
         </div>
       </div>
