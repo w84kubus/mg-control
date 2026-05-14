@@ -1,60 +1,87 @@
 @import "tailwindcss";
 
-/* ─── Dark mode via class ─────────────────────────────────────────────── */
+/* ─── Dark mode via .dark class ──────────────────────────────────────────── */
 @variant dark (&:where(.dark, .dark *));
 
-/* ─── MG Control design tokens ─────────────────────────────────────────── */
+/* ─── Design A: Industrial Dark – CSS tokens ─────────────────────────────── */
 :root {
-  /* Backgrounds */
-  --bg-primary: #f8f9fb;
-  --bg-surface: #ffffff;
-  --bg-border: #e2e8f0;
+  --bg-primary:   #0d0d14;
+  --bg-surface:   #111120;
+  --bg-surface2:  #141728;
+  --bg-border:    #1a1d2e;
+  --bg-border2:   #2d3149;
 
-  /* Accent */
-  --color-accent: #3b82f6;
-  --color-success: #22c55e;
-  --color-warning: #eab308;
-  --color-danger: #ef4444;
+  --color-accent:   #3b82f6;
+  --color-accent-h: #2563eb;
+  --color-success:  #22c55e;
+  --color-warning:  #eab308;
+  --color-danger:   #ef4444;
 
-  /* Text */
-  --color-text: #0f172a;
-  --color-muted: #64748b;
+  --color-text:   #f1f5f9;
+  --color-muted:  #64748b;
+  --color-muted2: #334155;
 
-  /* Transitions */
-  --transition-theme: 250ms ease;
+  --sidebar-w: 240px;
+  --topbar-h:  56px;
+  --bottombar-h: 64px;
 }
 
-.dark {
-  --bg-primary: #0f1117;
-  --bg-surface: #1a1d27;
-  --bg-border: #2d3149;
-
-  --color-text: #e2e8f0;
-  --color-muted: #64748b;
+/* Light overrides (when .light class is on html) */
+.light {
+  --bg-primary:   #f0f4f8;
+  --bg-surface:   #ffffff;
+  --bg-surface2:  #f8fafc;
+  --bg-border:    #e2e8f0;
+  --bg-border2:   #cbd5e1;
+  --color-text:   #0f172a;
+  --color-muted:  #64748b;
+  --color-muted2: #94a3b8;
 }
 
 /* ─── Base ───────────────────────────────────────────────────────────────── */
-*, *::before, *::after {
-  transition: background-color var(--transition-theme),
-              border-color var(--transition-theme),
-              color var(--transition-theme);
-}
+html { height: 100%; }
 
 body {
   background: var(--bg-primary);
   color: var(--color-text);
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100dvh;
+  transition: background-color 250ms ease, color 250ms ease;
 }
 
-/* ─── Vehicle status colors ─────────────────────────────────────────────── */
-.vehicle-new      { background: #ffffff; border: 1.5px solid #cbd5e1; }
-.vehicle-ordered  { background: #fef9c3; border: 1.5px solid #eab308; }
-.vehicle-damaged  { background: #fee2e2; border: 1.5px solid #ef4444; }
-.vehicle-ready    { background: #dcfce7; border: 1.5px solid #22c55e; }
-.vehicle-ready-wash { background: #dcfce7; border: 2.5px solid #ffffff; outline: 1.5px solid #22c55e; }
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--bg-border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
 
-.dark .vehicle-new      { background: #1e293b; border-color: #475569; }
-.dark .vehicle-ordered  { background: #422006; border-color: #ca8a04; }
-.dark .vehicle-damaged  { background: #450a0a; border-color: #dc2626; }
-.dark .vehicle-ready    { background: #052e16; border-color: #16a34a; }
+/* ─── Vehicle status card classes ───────────────────────────────────────── */
+.vehicle-new      { background: #1a1d2e; color: #94a3b8; border: 1.5px solid #2d3149; }
+.vehicle-ordered  { background: #2d2000; color: #fbbf24; border: 1.5px solid #78350f; }
+.vehicle-damaged  { background: #2d0000; color: #f87171; border: 1.5px solid #7f1d1d; }
+.vehicle-ready    { background: #00200a; color: #4ade80; border: 1.5px solid #14532d; }
+.vehicle-ready-wash {
+  background: #00200a; color: #4ade80;
+  border: 2px solid #4ade80;
+  box-shadow: 0 0 0 2px #0d0d14;
+}
+
+.light .vehicle-new      { background: #fff;     color: #475569; border: 1.5px solid #e2e8f0; }
+.light .vehicle-ordered  { background: #fef9c3;  color: #854d0e; border: 1.5px solid #fde68a; }
+.light .vehicle-damaged  { background: #fee2e2;  color: #991b1b; border: 1.5px solid #fca5a5; }
+.light .vehicle-ready    { background: #dcfce7;  color: #14532d; border: 1.5px solid #86efac; }
+
+/* ─── Focus ring ─────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ─── Toast overrides ───────────────────────────────────────────────────── */
+.Toastify__toast {
+  background: var(--bg-surface) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--bg-border) !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}

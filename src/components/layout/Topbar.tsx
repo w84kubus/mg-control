@@ -1,0 +1,221 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Search, Bell, Sun, Moon, Monitor, LogOut, ChevronDown } from "lucide-react";
+import { toast } from "react-toastify";
+import { useAuthStore } from "@/store/authStore";
+import { useNotificationsStore } from "@/store/notificationsStore";
+import { useVehiclesStore } from "@/store/vehiclesStore";
+import { signOut } from "@/lib/auth";
+import type { ThemeMode, Vehicle } from "@/types";
+
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
+  { value: "light",  label: "Jasny",   icon: <Sun size={14} /> },
+  { value: "dark",   label: "Ciemny",  icon: <Moon size={14} /> },
+  { value: "system", label: "System",  icon: <Monitor size={14} /> },
+];
+
+export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
+  const router = useRouter();
+  const { user, theme, setTheme } = useAuthStore();
+  const { unreadCount } = useNotificationsStore();
+  const { vehicles, setSearchQuery, searchQuery } = useVehiclesStore();
+
+  const [searchResults, setSearchResults] = useState<Vehicle[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showTheme, setShowTheme] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ctrl+K / Cmd+K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+        setShowSearch(true);
+      }
+      if (e.key === "Escape") {
+        setShowSearch(false);
+        setShowTheme(false);
+        setShowProfile(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  function handleSearch(q: string) {
+    setSearchQuery(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (!q.trim()) { setSearchResults([]); return; }
+      const lower = q.toLowerCase();
+      const results = vehicles.filter((v) =>
+        v.vin.toLowerCase().includes(lower) ||
+        v.vinShort.toLowerCase().includes(lower) ||
+        v.model.toLowerCase().includes(lower) ||
+        v.brand.toLowerCase().includes(lower) ||
+        (v.licensePlate?.toLowerCase().includes(lower)) ||
+        (v.assignedSalespersonName?.toLowerCase().includes(lower)) ||
+        v.color.toLowerCase().includes(lower)
+      ).slice(0, 8);
+      setSearchResults(results);
+    }, 250);
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch {
+      toast.error("Błąd podczas wylogowywania.");
+    }
+  }
+
+  const STATUS_DOT: Record<string, string> = {
+    new: "#94a3b8", ordered: "#fbbf24", damaged: "#f87171",
+    ready: "#4ade80", ready_wash: "#4ade80", delivered: "#64748b",
+  };
+
+  return (
+    <header className="fixed top-0 right-0 left-0 z-40 flex items-center gap-3 px-4 h-14"
+            style={{
+              background: "var(--bg-surface)",
+              borderBottom: "1px solid var(--bg-border)",
+              left: "var(--sidebar-w)",
+            }}>
+
+      {/* Search */}
+      <div className="flex-1 relative max-w-lg">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm"
+             style={{ background: "var(--bg-surface2)", border: "1px solid var(--bg-border2)" }}>
+          <Search size={14} style={{ color: "var(--color-muted)" }} />
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Szukaj po VIN, modelu, nr rej., handlowcu... (Ctrl+K)"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            onFocus={() => setShowSearch(true)}
+            onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: "var(--color-text)" }}
+          />
+          {searchQuery && (
+            <button onClick={() => { handleSearch(""); setSearchResults([]); }}
+                    className="text-xs" style={{ color: "var(--color-muted)" }}>✕</button>
+          )}
+        </div>
+
+        {showSearch && searchResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-50"
+               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", boxShadow: "0 8px 32px rgba(0,0,0,.4)" }}>
+            {searchResults.map((v) => (
+              <button key={v.id}
+                      onClick={() => { setShowSearch(false); handleSearch(""); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:opacity-80 transition-opacity"
+                      style={{ borderBottom: "1px solid var(--bg-border)" }}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: STATUS_DOT[v.status] ?? "#64748b" }} />
+                <span className="text-xs font-mono font-bold" style={{ color: "var(--color-text)" }}>
+                  {v.vinShort}
+                </span>
+                <span className="text-xs flex-1" style={{ color: "var(--color-muted)" }}>
+                  {v.brand} {v.model} · {v.color}
+                </span>
+                <span className="text-xs" style={{ color: "var(--color-muted2)" }}>
+                  {v.zoneId ?? "—"}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {showSearch && searchQuery && searchResults.length === 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 rounded-xl px-4 py-3 text-sm z-50"
+               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", color: "var(--color-muted)" }}>
+            Nie znaleziono pojazdów pasujących do &quot;{searchQuery}&quot;. Spróbuj innego wyrażenia.
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1 ml-auto">
+        {/* Theme toggle */}
+        <div className="relative">
+          <button onClick={() => { setShowTheme(!showTheme); setShowProfile(false); }}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80"
+                  style={{ color: "var(--color-muted)" }}>
+            {theme === "light" ? <Sun size={16} /> : theme === "dark" ? <Moon size={16} /> : <Monitor size={16} />}
+          </button>
+          {showTheme && (
+            <div className="absolute right-0 top-10 w-36 rounded-xl overflow-hidden z-50"
+                 style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+              {THEME_OPTIONS.map((opt) => (
+                <button key={opt.value}
+                        onClick={() => { setTheme(opt.value); setShowTheme(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
+                        style={{ color: theme === opt.value ? "var(--color-accent)" : "var(--color-muted)" }}>
+                  {opt.icon}{opt.label}
+                  {theme === opt.value && <span className="ml-auto">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Notifications */}
+        <button onClick={() => router.push("/notifications")}
+                className="relative w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80"
+                style={{ color: "var(--color-muted)" }}>
+          <Bell size={16} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center text-white"
+                  style={{ background: "var(--color-danger)" }}>
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* Profile */}
+        <div className="relative">
+          <button onClick={() => { setShowProfile(!showProfile); setShowTheme(false); }}
+                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:opacity-80"
+                  style={{ color: "var(--color-text)" }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                 style={{ background: "var(--color-accent)" }}>
+              {user?.displayName?.[0]?.toUpperCase() ?? "?"}
+            </div>
+            <span className="text-xs font-medium hidden sm:block">
+              {user?.displayName?.split(" ")[0] ?? user?.email}
+            </span>
+            <ChevronDown size={12} />
+          </button>
+
+          {showProfile && (
+            <div className="absolute right-0 top-10 w-48 rounded-xl overflow-hidden z-50"
+                 style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+              <div className="px-4 py-3 border-b" style={{ borderColor: "var(--bg-border)" }}>
+                <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                  {user?.displayName}
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-muted)" }}>{user?.email}</p>
+                <p className="text-xs mt-1 px-2 py-0.5 rounded-full inline-block"
+                   style={{ background: "var(--bg-border)", color: "var(--color-accent)", fontSize: "10px" }}>
+                  {user?.role}
+                </p>
+              </div>
+              <button onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs hover:opacity-80"
+                      style={{ color: "var(--color-danger)" }}>
+                <LogOut size={13} /> Wyloguj się
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
