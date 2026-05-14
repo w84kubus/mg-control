@@ -10,6 +10,9 @@ import { useVehiclesStore } from "@/store/vehiclesStore";
 import { signOut } from "@/lib/auth";
 import type { ThemeMode, Vehicle } from "@/types";
 
+// Local state for topbar quick-search (separate from the map FilterBar)
+
+
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
   { value: "light",  label: "Jasny",   icon: <Sun size={14} /> },
   { value: "dark",   label: "Ciemny",  icon: <Moon size={14} /> },
@@ -20,7 +23,8 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
   const router = useRouter();
   const { user, theme, setTheme } = useAuthStore();
   const { unreadCount } = useNotificationsStore();
-  const { vehicles, setSearchQuery, searchQuery } = useVehiclesStore();
+  const { vehicles } = useVehiclesStore();
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [searchResults, setSearchResults] = useState<Vehicle[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -49,6 +53,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
   function handleSearch(q: string) {
     setSearchQuery(q);
+    // Note: topbar search is quick-find only; FilterBar handles map/list filtering
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (!q.trim()) { setSearchResults([]); return; }

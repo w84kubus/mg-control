@@ -1,28 +1,44 @@
 import { create } from "zustand";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import type { Vehicle } from "@/types";
 
 interface VehiclesState {
   vehicles: Vehicle[];
-  isLoading: boolean;
-  searchQuery: string;
-  setVehicles: (vehicles: Vehicle[]) => void;
-  setLoading: (loading: boolean) => void;
-  setSearchQuery: (query: string) => void;
+  loading: boolean;
+  error: string | null;
+  subscribe: () => () => void;
   getVehicleById: (id: string) => Vehicle | undefined;
   getVehicleByVin: (vin: string) => Vehicle | undefined;
-  getVehiclesByZone: (zoneId: string) => Vehicle[];
+  getVehiclesInZone: (zoneId: string) => Vehicle[];
+  getUnzoned: () => Vehicle[];
 }
 
 export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
   vehicles: [],
-  isLoading: true,
-  searchQuery: "",
-  setVehicles: (vehicles) => set({ vehicles }),
-  setLoading: (isLoading) => set({ isLoading }),
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  loading: true,
+  error: null,
+
+  subscribe: () => {
+    const q = query(collection(db, "vehicles"), orderBy("arrivalDate", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        set({
+          vehicles: snap.docs.map((d) => ({ id: d.id, ...d.data() } as Vehicle)),
+          loading: false,
+          error: null,
+        });
+      },
+      (err) => set({ error: err.message, loading: false })
+    );
+    return unsub;
+  },
+
   getVehicleById: (id) => get().vehicles.find((v) => v.id === id),
   getVehicleByVin: (vin) =>
     get().vehicles.find((v) => v.vin.toLowerCase() === vin.toLowerCase()),
-  getVehiclesByZone: (zoneId) =>
+  getVehiclesInZone: (zoneId) =>
     get().vehicles.filter((v) => v.zoneId === zoneId),
+  getUnzoned: () => get().vehicles.filter((v) => !v.zoneId),
 }));
