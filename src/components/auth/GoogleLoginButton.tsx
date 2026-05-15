@@ -1,48 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "react-toastify";
-import { signInWithGoogle } from "@/lib/auth";
-import { getAuthErrorMessage } from "@/lib/auth";
+import { startGoogleSignIn } from "@/lib/auth";
 
 export default function GoogleLoginButton() {
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  async function handleGoogleLogin() {
-    if (loading) return;
-    setLoading(true);
-    try {
-      const { isNew } = await signInWithGoogle();
-      if (isNew) {
-        toast.info("Konto zostało utworzone. Skontaktuj się z administratorem w celu przypisania roli.");
-      }
-      router.replace("/dashboard");
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      const message =
-        err instanceof Error && !code
-          ? err.message
-          : getAuthErrorMessage(code ?? "");
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <button
-      onClick={handleGoogleLogin}
-      disabled={loading}
-      className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      onClick={startGoogleSignIn}
+      className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
       style={{ background: "var(--bg-surface2)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}
     >
-      {loading ? (
-        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-      ) : (
-        <GoogleIcon />
-      )}
+      <GoogleIcon />
       Zaloguj się przez Google
     </button>
   );

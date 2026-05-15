@@ -1,5 +1,6 @@
 import {
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -90,17 +91,22 @@ export async function getUserDocument(uid: string): Promise<AppUser | null> {
   }
 }
 
-// ─── Google OAuth ─────────────────────────────────────────────────────────────
+// ─── Google OAuth (redirect flow — works on GitHub Pages) ────────────────────
 
-export async function signInWithGoogle(): Promise<{
+export function startGoogleSignIn(): void {
+  const provider = new GoogleAuthProvider();
+  signInWithRedirect(auth, provider);
+}
+
+export async function handleGoogleRedirect(): Promise<{
   user: User;
   isNew: boolean;
-}> {
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
+} | null> {
+  const result = await getRedirectResult(auth);
+  if (!result) return null;
+
   const { user } = result;
 
-  // Check whitelist
   const { allowed, role } = await checkEmailWhitelist(user.email ?? "");
   if (!allowed) {
     await firebaseSignOut(auth);
@@ -109,7 +115,6 @@ export async function signInWithGoogle(): Promise<{
     );
   }
 
-  // Check if user doc exists
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   const isNew = !snap.exists();
