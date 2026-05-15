@@ -51,7 +51,7 @@ export function getAuthErrorMessage(code: string): string {
 
 // ─── Whitelist check ──────────────────────────────────────────────────────────
 
-async function checkEmailWhitelist(
+export async function checkEmailWhitelist(
   email: string
 ): Promise<{ allowed: boolean; role: UserRole }> {
   const ref = doc(db, "allowedEmails", email.toLowerCase());
@@ -64,7 +64,7 @@ async function checkEmailWhitelist(
 
 // ─── User document helpers ────────────────────────────────────────────────────
 
-async function ensureUserDocument(firebaseUser: User, role: UserRole = "salesperson") {
+export async function ensureUserDocument(firebaseUser: User, role: UserRole = "salesperson") {
   const ref = doc(db, "users", firebaseUser.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
