@@ -21,7 +21,7 @@ service cloud.firestore {
     // ─── users ─────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read:   if isAuth() && (uid() == userId || isLogistics());
-      allow create: if isLogistics();
+      allow create: if isLogistics() || (isAuth() && uid() == userId);
       allow update: if isLogistics()
                     || (isAuth() && uid() == userId
                         && changedOnly(["fcmToken","lastSeen","updatedAt"]));

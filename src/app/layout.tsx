@@ -7,6 +7,21 @@ import { useAuthStore } from "@/store/authStore";
 import OnlineGuard from "@/components/layout/OnlineGuard";
 import { useFcmToken } from "@/hooks/useFcmToken";
 
+const HEAD = (
+  <>
+    <title>MG Control</title>
+    <meta name="description" content="System Logistyki Salonu MG Plaza Warszawa" />
+    <meta name="theme-color" content="#4361ee" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MG Control" />
+    <link rel="manifest" href="/mg-control/manifest.json" />
+    <link rel="apple-touch-icon" href="/mg-control/icons/apple-touch-icon.png" />
+    <link rel="icon" href="/mg-control/icons/icon-192.png" type="image/png" />
+  </>
+);
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const theme = useAuthStore((s) => s.theme);
   const [mounted, setMounted] = useState(false);
@@ -36,16 +51,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     }
   }, [theme]);
 
-  // Prevent flash of wrong theme
   if (!mounted) {
     return (
       <html lang="pl" suppressHydrationWarning>
-        <head>
-          <title>MG Control</title>
-          <meta name="description" content="System Logistyki Salonu MG Plaza Warszawa" />
-          <meta name="theme-color" content="#0d0d14" />
-          <link rel="icon" href="/favicon.ico" />
-        </head>
+        <head>{HEAD}</head>
         <body />
       </html>
     );
@@ -53,12 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="pl" suppressHydrationWarning>
-      <head>
-        <title>MG Control</title>
-        <meta name="description" content="System Logistyki Salonu MG Plaza Warszawa" />
-        <meta name="theme-color" content="#0d0d14" />
-        <link rel="icon" href="/favicon.ico" />
-      </head>
+      <head>{HEAD}</head>
       <body className="min-h-dvh">
         <OnlineGuard>
           {children}

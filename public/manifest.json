@@ -1,0 +1,27 @@
+{
+  "name": "MG Control",
+  "short_name": "MG Control",
+  "description": "System Logistyki Salonu MG Plaza Warszawa",
+  "start_url": "/mg-control/",
+  "scope": "/mg-control/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d0d14",
+  "theme_color": "#4361ee",
+  "lang": "pl",
+  "icons": [
+    {
+      "src": "/mg-control/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/mg-control/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}
