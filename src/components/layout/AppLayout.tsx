@@ -1,35 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import BottomBar from "./BottomBar";
 import Topbar from "./Topbar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  // On desktop (≥1024px) the sidebar is always open.
+  // On mobile/tablet it starts closed and is toggled by the hamburger button.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Sync sidebar state with viewport width
+  useEffect(() => {
+    function sync() {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    }
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+
+  const isDesktop = sidebarOpen && typeof window !== "undefined" && window.innerWidth >= 1024;
 
   return (
     <div className="min-h-dvh flex">
       {/* Sidebar – always shown on lg+, toggled on mobile */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-dvh transition-all"
-           style={{
-             marginLeft: "var(--sidebar-w)",
-             paddingTop: "var(--topbar-h)",
-             paddingBottom: "var(--bottombar-h)",
-           }}>
-
+      {/* Main content — shifts right only when sidebar is pinned (lg+) */}
+      <div
+        className="flex-1 flex flex-col min-h-dvh transition-all duration-200"
+        style={{
+          marginLeft: isDesktop ? "var(--sidebar-w)" : 0,
+          paddingTop: "var(--topbar-h)",
+          paddingBottom: "var(--bottombar-h)",
+        }}
+      >
         {/* Topbar */}
         <Topbar onMenuToggle={() => setSidebarOpen((o) => !o)} />
 
-        {/* Hamburger (mobile) – shown in topbar on small screens */}
+        {/* Hamburger — visible only on mobile/tablet (< lg) */}
         <div className="fixed top-0 left-0 z-50 flex items-center h-14 px-3 lg:hidden">
-          <button onClick={() => setSidebarOpen(true)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg"
-                  style={{ color: "var(--color-muted)" }}>
+          <button
+            onClick={() => setSidebarOpen((o) => !o)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg"
+            style={{ color: "var(--color-muted)" }}
+            aria-label="Menu"
+          >
             <Menu size={20} />
           </button>
         </div>

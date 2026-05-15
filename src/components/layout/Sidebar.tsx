@@ -60,6 +60,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           width: "var(--sidebar-w)",
           background: "var(--bg-surface)",
           borderRight: "1px solid var(--bg-border)",
+          // On desktop (lg+) always visible regardless of `open` prop
           transform: open ? "translateX(0)" : "translateX(calc(-1 * var(--sidebar-w)))",
         }}
       >

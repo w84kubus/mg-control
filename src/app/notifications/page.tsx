@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   collection,
   query,
@@ -24,6 +25,7 @@ import {
   Truck,
   Car,
   Check,
+  ArrowLeft,
 } from "lucide-react";
 import type { AppNotification } from "@/types";
 
@@ -70,6 +72,7 @@ function formatNotifDate(ts: Timestamp): string {
 
 export default function NotificationsPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const { setNotifications, markAsRead } = useNotificationsStore();
   const [notifications, setLocalNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,6 +170,14 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70"
+            style={{ color: "var(--color-muted)", background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
+            title="Powrót do mapy"
+          >
+            <ArrowLeft size={16} />
+          </button>
           <Bell size={22} style={{ color: "var(--color-accent)" }} />
           <h1 className="text-xl font-bold" style={{ color: "var(--color-text)" }}>
             Powiadomienia

@@ -118,6 +118,11 @@ function SortableItem({ item, index, onStart, onDone }: SortableItemProps) {
             </span>
           )}
         </div>
+        {item.plannedDeliveryDate && (
+          <p className="text-xs mt-0.5 font-semibold" style={{ color: "#f97316" }}>
+            📅 {new Date((item.plannedDeliveryDate as unknown as { seconds: number }).seconds * 1000).toLocaleDateString("pl-PL")}
+          </p>
+        )}
         {item.plannedDeliveryNote && (
           <p className="text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
             {item.plannedDeliveryNote}
@@ -174,6 +179,7 @@ export default function WashQueuePage() {
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [deliveryNote, setDeliveryNote] = useState("");
+  const [plannedDate, setPlannedDate] = useState("");
   const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor));
@@ -259,6 +265,7 @@ export default function WashQueuePage() {
     setVehicleSearch("");
     setSelectedVehicle(null);
     setDeliveryNote("");
+    setPlannedDate("");
     setShowModal(true);
   };
 
@@ -281,7 +288,7 @@ export default function WashQueuePage() {
         queueOrder: maxOrder + 1,
         orderedBy: user.uid,
         orderedByName: user.displayName,
-        plannedDeliveryDate: null,
+        plannedDeliveryDate: plannedDate ? new Date(plannedDate) : null,
         plannedDeliveryNote: deliveryNote.trim(),
         status: "waiting",
         completedAt: null,
@@ -488,16 +495,29 @@ export default function WashQueuePage() {
                 )}
               </div>
 
+              {/* Planned delivery date */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                  Planowana data wydania (opcjonalnie)
+                </label>
+                <input
+                  type="date"
+                  value={plannedDate}
+                  onChange={(e) => setPlannedDate(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
               {/* Delivery note */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-                  Notatka / termin (opcjonalnie)
+                  Notatka (opcjonalnie)
                 </label>
                 <textarea
                   value={deliveryNote}
                   onChange={(e) => setDeliveryNote(e.target.value)}
                   rows={2}
-                  placeholder="np. Wydanie jutro do 12:00…"
+                  placeholder="np. Wydanie do 12:00…"
                   style={{ ...inputStyle, resize: "vertical" }}
                 />
               </div>
