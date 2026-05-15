@@ -1,6 +1,5 @@
 import {
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -95,32 +94,7 @@ export async function getUserDocument(uid: string): Promise<AppUser | null> {
 
 export async function startGoogleSignIn(): Promise<void> {
   const provider = new GoogleAuthProvider();
-  await signInWithRedirect(auth, provider);
-}
-
-export async function handleGoogleRedirect(): Promise<{
-  user: User;
-  isNew: boolean;
-} | null> {
-  const result = await getRedirectResult(auth);
-  if (!result) return null;
-
-  const { user } = result;
-
-  const { allowed, role } = await checkEmailWhitelist(user.email ?? "");
-  if (!allowed) {
-    await firebaseSignOut(auth);
-    throw new Error(
-      "Twój adres e-mail nie został zaakceptowany przez administratora. Skontaktuj się z Logistykiem."
-    );
-  }
-
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
-  const isNew = !snap.exists();
-
-  await ensureUserDocument(user, role);
-  return { user, isNew };
+  await signInWithPopup(auth, provider);
 }
 
 // ─── Email/Password ───────────────────────────────────────────────────────────

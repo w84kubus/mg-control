@@ -7,7 +7,6 @@ import {
   getUserDocument,
   checkEmailWhitelist,
   ensureUserDocument,
-  signOut,
 } from "@/lib/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useAuthStore } from "@/store/authStore";
@@ -40,7 +39,7 @@ export function useAuthListener() {
           const { allowed, role } = await checkEmailWhitelist(email);
 
           if (!allowed) {
-            await signOut();
+            await import("@/lib/auth").then((m) => m.signOut());
             toast.error(
               "Twój adres e-mail nie został zaakceptowany przez administratora. Skontaktuj się z Logistykiem."
             );
