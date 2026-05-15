@@ -1,16 +1,45 @@
 "use client";
 
+import { useState } from "react";
 import { startGoogleSignIn } from "@/lib/auth";
+import { toast } from "react-toastify";
 
 export default function GoogleLoginButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      await startGoogleSignIn();
+      // Page will redirect — loading stays true until navigation
+    } catch (err: unknown) {
+      setLoading(false);
+      const code = (err as { code?: string }).code ?? "";
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return;
+      toast.error("Nie udało się uruchomić logowania Google. Sprawdź połączenie.");
+      console.error("[GoogleLogin]", err);
+    }
+  }
+
   return (
     <button
-      onClick={startGoogleSignIn}
-      className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
-      style={{ background: "var(--bg-surface2)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}
+      onClick={handleClick}
+      disabled={loading}
+      className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-opacity disabled:opacity-60"
+      style={{
+        background: "var(--bg-surface2)",
+        border: "1px solid var(--bg-border2)",
+        color: "var(--color-text)",
+      }}
     >
-      <GoogleIcon />
-      Zaloguj się przez Google
+      {loading ? (
+        <span className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
+      ) : (
+        <GoogleIcon />
+      )}
+      {loading ? "Przekierowuję…" : "Zaloguj się przez Google"}
     </button>
   );
 }

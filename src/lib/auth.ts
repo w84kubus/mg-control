@@ -93,9 +93,9 @@ export async function getUserDocument(uid: string): Promise<AppUser | null> {
 
 // ─── Google OAuth (redirect flow — works on GitHub Pages) ────────────────────
 
-export function startGoogleSignIn(): void {
+export async function startGoogleSignIn(): Promise<void> {
   const provider = new GoogleAuthProvider();
-  signInWithRedirect(auth, provider);
+  await signInWithRedirect(auth, provider);
 }
 
 export async function handleGoogleRedirect(): Promise<{
