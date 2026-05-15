@@ -1,17 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Bell, Sun, Moon, Monitor, LogOut, ChevronDown } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuthStore } from "@/store/authStore";
 import { useNotificationsStore } from "@/store/notificationsStore";
-import { useVehiclesStore } from "@/store/vehiclesStore";
 import { signOut } from "@/lib/auth";
-import type { ThemeMode, Vehicle } from "@/types";
-
-// Local state for topbar quick-search (separate from the map FilterBar)
-
+import GlobalSearch from "@/components/layout/GlobalSearch";
+import type { ThemeMode } from "@/types";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
   { value: "light",  label: "Jasny",   icon: <Sun size={14} /> },
@@ -23,53 +20,26 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
   const router = useRouter();
   const { user, theme, setTheme } = useAuthStore();
   const { unreadCount } = useNotificationsStore();
-  const { vehicles } = useVehiclesStore();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const [searchResults, setSearchResults] = useState<Vehicle[]>([]);
-  const [showSearch, setShowSearch] = useState(false);
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Ctrl+K / Cmd+K shortcut
+  // Ctrl+K / Cmd+K shortcut → open GlobalSearch
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
-        searchRef.current?.focus();
-        setShowSearch(true);
+        setGlobalSearchOpen(true);
       }
       if (e.key === "Escape") {
-        setShowSearch(false);
         setShowTheme(false);
         setShowProfile(false);
+        // GlobalSearch handles its own Esc
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-
-  function handleSearch(q: string) {
-    setSearchQuery(q);
-    // Note: topbar search is quick-find only; FilterBar handles map/list filtering
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (!q.trim()) { setSearchResults([]); return; }
-      const lower = q.toLowerCase();
-      const results = vehicles.filter((v) =>
-        v.vin.toLowerCase().includes(lower) ||
-        v.vinShort.toLowerCase().includes(lower) ||
-        v.model.toLowerCase().includes(lower) ||
-        v.brand.toLowerCase().includes(lower) ||
-        (v.licensePlate?.toLowerCase().includes(lower)) ||
-        (v.assignedSalespersonName?.toLowerCase().includes(lower)) ||
-        v.color.toLowerCase().includes(lower)
-      ).slice(0, 8);
-      setSearchResults(results);
-    }, 250);
-  }
 
   async function handleLogout() {
     try {
@@ -80,12 +50,11 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
     }
   }
 
-  const STATUS_DOT: Record<string, string> = {
-    new: "#94a3b8", ordered: "#fbbf24", damaged: "#f87171",
-    ready: "#4ade80", ready_wash: "#4ade80", delivered: "#64748b",
-  };
-
   return (
+    <>
+      {/* Global search overlay */}
+      <GlobalSearch isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
+
     <header className="fixed top-0 right-0 left-0 z-40 flex items-center gap-3 px-4 h-14"
             style={{
               background: "var(--bg-surface)",
@@ -93,58 +62,22 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
               left: "var(--sidebar-w)",
             }}>
 
-      {/* Search */}
-      <div className="flex-1 relative max-w-lg">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm"
-             style={{ background: "var(--bg-surface2)", border: "1px solid var(--bg-border2)" }}>
+      {/* Search trigger button */}
+      <div className="flex-1 max-w-lg">
+        <button
+          onClick={() => setGlobalSearchOpen(true)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm text-left"
+          style={{ background: "var(--bg-surface2)", border: "1px solid var(--bg-border2)" }}
+        >
           <Search size={14} style={{ color: "var(--color-muted)" }} />
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder="Szukaj po VIN, modelu, nr rej., handlowcu... (Ctrl+K)"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            onFocus={() => setShowSearch(true)}
-            onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-            className="flex-1 bg-transparent outline-none text-sm"
-            style={{ color: "var(--color-text)" }}
-          />
-          {searchQuery && (
-            <button onClick={() => { handleSearch(""); setSearchResults([]); }}
-                    className="text-xs" style={{ color: "var(--color-muted)" }}>✕</button>
-          )}
-        </div>
-
-        {showSearch && searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-50"
-               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", boxShadow: "0 8px 32px rgba(0,0,0,.4)" }}>
-            {searchResults.map((v) => (
-              <button key={v.id}
-                      onClick={() => { setShowSearch(false); handleSearch(""); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:opacity-80 transition-opacity"
-                      style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                <span className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: STATUS_DOT[v.status] ?? "#64748b" }} />
-                <span className="text-xs font-mono font-bold" style={{ color: "var(--color-text)" }}>
-                  {v.vinShort}
-                </span>
-                <span className="text-xs flex-1" style={{ color: "var(--color-muted)" }}>
-                  {v.brand} {v.model} · {v.color}
-                </span>
-                <span className="text-xs" style={{ color: "var(--color-muted2)" }}>
-                  {v.zoneId ?? "—"}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {showSearch && searchQuery && searchResults.length === 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 rounded-xl px-4 py-3 text-sm z-50"
-               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", color: "var(--color-muted)" }}>
-            Nie znaleziono pojazdów pasujących do &quot;{searchQuery}&quot;. Spróbuj innego wyrażenia.
-          </div>
-        )}
+          <span className="flex-1 text-sm" style={{ color: "var(--color-muted)" }}>
+            Szukaj po VIN, modelu, nr rej., kolorze…
+          </span>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded hidden sm:block"
+               style={{ background: "var(--bg-border)", color: "var(--color-muted)" }}>
+            Ctrl K
+          </kbd>
+        </button>
       </div>
 
       <div className="flex items-center gap-1 ml-auto">
@@ -222,5 +155,6 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
         </div>
       </div>
     </header>
+    </>
   );
 }

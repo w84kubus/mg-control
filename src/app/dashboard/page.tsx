@@ -11,6 +11,7 @@ import MapView from "@/components/map/MapView";
 import ListView from "@/components/map/ListView";
 import VehicleModal from "@/components/map/VehicleModal";
 import AddVehicleModal from "@/components/map/AddVehicleModal";
+import ZonePanel from "@/components/map/ZonePanel";
 import type { Vehicle } from "@/types";
 
 export default function DashboardPage() {
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const { vehicleId: modalVehicleId, isOpen, isAdding, open: openModal, openAdd, close: closeModal } = useVehicleModalStore();
 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [zonePanelOpen, setZonePanelOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
 
   useEffect(() => {
@@ -60,7 +62,14 @@ export default function DashboardPage() {
   const washCount = vehicles.filter((v) => v.status === "ready_wash").length;
 
   const handleZoneClick = (zoneId: string) => {
-    setSelectedZoneId((prev) => (prev === zoneId ? null : zoneId));
+    setSelectedZoneId((prev) => {
+      if (prev === zoneId) {
+        setZonePanelOpen(false);
+        return null;
+      }
+      setZonePanelOpen(true);
+      return zoneId;
+    });
     setSelectedVehicle(null);
   };
 
@@ -169,6 +178,16 @@ export default function DashboardPage() {
       )}
       {isOpen && isAdding && (
         <AddVehicleModal onClose={closeModal} />
+      )}
+
+      {/* Zone panel */}
+      {zonePanelOpen && selectedZoneId && (
+        <ZonePanel
+          zone={zones.find((z) => z.id === selectedZoneId) ?? null}
+          vehicles={vehicles.filter((v) => v.zoneId === selectedZoneId)}
+          onClose={() => { setZonePanelOpen(false); setSelectedZoneId(null); }}
+          onVehicleClick={(vehicleId) => openModal(vehicleId)}
+        />
       )}
     </div>
   );

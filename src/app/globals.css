@@ -85,3 +85,15 @@ body {
   border-radius: 10px !important;
   font-size: 13px !important;
 }
+
+/* ─── Slide-in animations ───────────────────────────────────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slideInBottom {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.animate-slide-right  { animation: slideInRight  200ms ease both; }
+.animate-slide-bottom { animation: slideInBottom 220ms ease both; }

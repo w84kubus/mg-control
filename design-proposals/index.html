@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MG Control – Propozycje Wizualne</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #0a0a0f; color: #e2e8f0; min-height: 100vh; }
+
+  header {
+    text-align: center;
+    padding: 48px 24px 32px;
+    border-bottom: 1px solid #1e2030;
+  }
+  header h1 { font-size: 28px; font-weight: 700; letter-spacing: 2px; color: #fff; }
+  header p  { margin-top: 8px; color: #64748b; font-size: 14px; }
+
+  .proposals { display: flex; flex-direction: column; gap: 80px; padding: 60px 40px; max-width: 1200px; margin: 0 auto; }
+
+  /* ── Proposal card ── */
+  .proposal { border-radius: 16px; overflow: hidden; border: 1px solid #1e2030; }
+  .proposal-header {
+    padding: 24px 32px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .proposal-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; opacity: .6;
+  }
+  .proposal-name { font-size: 22px; font-weight: 700; }
+  .proposal-desc { font-size: 13px; opacity: .6; margin-top: 4px; }
+
+  .proposal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: #1e2030;
+  }
+  .panel {
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .panel-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: .4; margin-bottom: 4px; }
+
+  /* Paleta */
+  .palette { display: flex; flex-wrap: wrap; gap: 8px; }
+  .swatch { width: 40px; height: 40px; border-radius: 8px; position: relative; }
+  .swatch span {
+    position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; white-space: nowrap; opacity: .5;
+  }
+  .swatches-row { display: flex; gap: 8px; margin-top: 24px; }
+
+  /* Vehicle tiles */
+  .tile {
+    border-radius: 8px; padding: 6px 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    display: inline-flex; flex-direction: column; gap: 2px;
+    width: 58px; align-items: center;
+  }
+  .tile .vin { font-size: 9px; font-weight: 400; opacity: .6; }
+  .tiles-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* ══════════════════════════════════════════
+     A – INDUSTRIAL DARK
+  ══════════════════════════════════════════ */
+  .a { background: #0d0d14; }
+  .a .proposal-header { background: #0d0d14; border-bottom: 1px solid #1a1d2e; }
+  .a .proposal-label { color: #3b82f6; }
+  .a .proposal-name  { color: #f1f5f9; }
+  .a .panel { background: #0d0d14; }
+
+  /* Login mockup A */
+  .login-a {
+    background: #111120;
+    border: 1px solid #1e2238;
+    border-radius: 12px;
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .login-a .logo-a {
+    text-align: center; margin-bottom: 4px;
+  }
+  .logo-a-mark {
+    width: 48px; height: 48px; margin: 0 auto 8px;
+    background: #3b82f6; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -1px;
+  }
+  .logo-a-text { font-size: 18px; font-weight: 800; color: #f1f5f9; letter-spacing: 3px; }
+  .logo-a-sub  { font-size: 10px; color: #475569; letter-spacing: 1px; margin-top: 2px; }
+  .btn-google-a {
+    background: #1e2238; border: 1px solid #2d3555;
+    border-radius: 8px; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 12px; color: #cbd5e1; cursor: pointer;
+  }
+  .divider-a { text-align: center; font-size: 10px; color: #334155; position: relative; }
+  .divider-a::before, .divider-a::after {
+    content: ''; position: absolute; top: 50%; width: 35%; height: 1px; background: #1e2238;
+  }
+  .divider-a::before { left: 0; } .divider-a::after { right: 0; }
+  .input-a {
+    background: #0d1020; border: 1px solid #1e2238; border-radius: 8px;
+    padding: 9px 12px; font-size: 11px; color: #64748b;
+  }
+  .btn-primary-a {
+    background: #3b82f6; border-radius: 8px; padding: 10px;
+    font-size: 12px; font-weight: 700; color: #fff; text-align: center;
+  }
+
+  /* Tiles A */
+  .tile-a-new     { background: #1a1d2e; color: #94a3b8; border: 1px solid #2d3149; }
+  .tile-a-ordered { background: #2d2000; color: #fbbf24; border: 1px solid #78350f; }
+  .tile-a-damaged { background: #2d0000; color: #f87171; border: 1px solid #7f1d1d; }
+  .tile-a-ready   { background: #00200a; color: #4ade80; border: 1px solid #14532d; }
+
+  /* ══════════════════════════════════════════
+     B – CLEAN FLEET
+  ══════════════════════════════════════════ */
+  .b { background: #f0f4f8; }
+  .b .proposal-header { background: #f0f4f8; border-bottom: 1px solid #dde3ed; }
+  .b .proposal-label { color: #1d4ed8; }
+  .b .proposal-name  { color: #0f172a; }
+  .b .proposal-desc  { color: #64748b; }
+  .b .panel { background: #f0f4f8; }
+  .b .panel-title { color: #0f172a; }
+
+  .login-b {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.07);
+  }
+  .logo-b-mark {
+    width: 48px; height: 48px; margin: 0 auto 8px;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 900; color: #fff;
+  }
+  .logo-b-text { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: 2px; text-align: center; }
+  .logo-b-sub  { font-size: 10px; color: #94a3b8; text-align: center; letter-spacing: 1px; }
+  .btn-google-b {
+    background: #fff; border: 1.5px solid #e2e8f0;
+    border-radius: 10px; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 12px; color: #374151; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .divider-b { text-align: center; font-size: 10px; color: #cbd5e1; position: relative; }
+  .divider-b::before, .divider-b::after {
+    content: ''; position: absolute; top: 50%; width: 35%; height: 1px; background: #e2e8f0;
+  }
+  .divider-b::before { left: 0; } .divider-b::after { right: 0; }
+  .input-b {
+    background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px;
+    padding: 9px 12px; font-size: 11px; color: #94a3b8;
+  }
+  .btn-primary-b {
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    border-radius: 8px; padding: 10px;
+    font-size: 12px; font-weight: 700; color: #fff; text-align: center;
+  }
+
+  .tile-b-new     { background: #fff; color: #475569; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .tile-b-ordered { background: #fef9c3; color: #854d0e; border: 1.5px solid #fde68a; }
+  .tile-b-damaged { background: #fee2e2; color: #991b1b; border: 1.5px solid #fca5a5; }
+  .tile-b-ready   { background: #dcfce7; color: #14532d; border: 1.5px solid #86efac; }
+
+  /* ══════════════════════════════════════════
+     C – FORGE
+  ══════════════════════════════════════════ */
+  .c { background: #0c0e10; }
+  .c .proposal-header { background: #0c0e10; border-bottom: 1px solid #1c2028; }
+  .c .proposal-label { color: #f97316; }
+  .c .proposal-name  { color: #f8fafc; }
+  .c .panel { background: #0c0e10; }
+
+  .login-c {
+    background: #13161b;
+    border: 1px solid #1c2028;
+    border-radius: 12px;
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .logo-c-mark {
+    width: 48px; height: 48px; margin: 0 auto 8px;
+    background: linear-gradient(135deg, #ea580c, #f97316);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 900; color: #fff;
+  }
+  .logo-c-text { font-size: 18px; font-weight: 800; color: #f8fafc; letter-spacing: 4px; text-align: center; }
+  .logo-c-sub  { font-size: 10px; color: #475569; text-align: center; letter-spacing: 2px; }
+  .btn-google-c {
+    background: #1c2028; border: 1px solid #2a303c;
+    border-radius: 8px; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 12px; color: #94a3b8;
+  }
+  .divider-c { text-align: center; font-size: 10px; color: #334155; position: relative; }
+  .divider-c::before, .divider-c::after {
+    content: ''; position: absolute; top: 50%; width: 35%; height: 1px; background: #1c2028;
+  }
+  .divider-c::before { left: 0; } .divider-c::after { right: 0; }
+  .input-c {
+    background: #0c0e10; border: 1px solid #1c2028; border-radius: 8px;
+    padding: 9px 12px; font-size: 11px; color: #475569;
+  }
+  .btn-primary-c {
+    background: linear-gradient(135deg, #ea580c, #f97316);
+    border-radius: 8px; padding: 10px;
+    font-size: 12px; font-weight: 700; color: #fff; text-align: center;
+  }
+
+  .tile-c-new     { background: #1c2028; color: #64748b; border: 1px solid #2a303c; }
+  .tile-c-ordered { background: #1c1200; color: #fb923c; border: 1px solid #431407; }
+  .tile-c-damaged { background: #1c0000; color: #f87171; border: 1px solid #450a0a; }
+  .tile-c-ready   { background: #001c08; color: #4ade80; border: 1px solid #052e16; }
+
+  /* Google icon */
+  .g-icon { width: 14px; height: 14px; border-radius: 50%;
+    background: linear-gradient(135deg,#4285f4,#34a853,#fbbc05,#ea4335);
+    flex-shrink: 0; }
+
+  /* Zone strip mockup */
+  .zone-strip {
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .zone-name { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .zone-meta { font-size: 9px; opacity: .5; }
+
+  .zone-a { background: #141728; border: 1px solid #1e2238; }
+  .zone-a .zone-name { color: #94a3b8; }
+  .zone-b { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .zone-b .zone-name { color: #0f172a; }
+  .zone-c { background: #13161b; border: 1px solid #1c2028; }
+  .zone-c .zone-name { color: #cbd5e1; }
+
+  /* Choose button */
+  .choose-bar {
+    display: flex; justify-content: center; gap: 16px;
+    padding: 32px 0 8px;
+  }
+  .choose-btn {
+    padding: 12px 32px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    border: none; transition: transform .1s;
+  }
+  .choose-btn:hover { transform: scale(1.03); }
+  .choose-a { background: #3b82f6; color: #fff; }
+  .choose-b { background: #1d4ed8; color: #fff; }
+  .choose-c { background: #f97316; color: #fff; }
+
+  /* Footer note */
+  .note {
+    text-align: center; padding: 24px; font-size: 12px; color: #334155;
+    border-top: 1px solid #1e2030; margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MG CONTROL</h1>
+  <p>Wybierz styl aplikacji — trzy propozycje wizualne</p>
+</header>
+
+<div class="proposals">
+
+  <!-- ═══════════════════════════════════════════ A ═══ -->
+  <div class="proposal a">
+    <div class="proposal-header">
+      <div>
+        <div class="proposal-label">Propozycja A</div>
+        <div class="proposal-name">Industrial Dark</div>
+        <div class="proposal-desc">Profesjonalny, ciemny interfejs inspirowany aplikacjami dla branży automotive i logistyki. Niebieski akcent, mała ilość koloru.</div>
+      </div>
+    </div>
+    <div class="proposal-body">
+
+      <!-- Panel 1: Paleta -->
+      <div class="panel a">
+        <div class="panel-title">Paleta kolorów</div>
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="swatches-row">
+            <div class="swatch" style="background:#0d0d14"><span>#0d0d14</span></div>
+            <div class="swatch" style="background:#111120"><span>#111120</span></div>
+            <div class="swatch" style="background:#1a1d2e"><span>#1a1d2e</span></div>
+            <div class="swatch" style="background:#2d3149"><span>#2d3149</span></div>
+          </div>
+          <div class="swatches-row">
+            <div class="swatch" style="background:#3b82f6"><span>Akcent</span></div>
+            <div class="swatch" style="background:#22c55e"><span>Gotowe</span></div>
+            <div class="swatch" style="background:#eab308"><span>Zlecone</span></div>
+            <div class="swatch" style="background:#ef4444"><span>Szkoda</span></div>
+          </div>
+        </div>
+        <div style="margin-top:24px;">
+          <div class="panel-title" style="margin-bottom:10px;">Kafelki pojazdów</div>
+          <div class="tiles-grid">
+            <div class="tile tile-a-new">HS1234<span class="vin">nowe</span></div>
+            <div class="tile tile-a-ordered">MG5678<span class="vin">zlecone</span></div>
+            <div class="tile tile-a-damaged">ZS9012<span class="vin">szkoda</span></div>
+            <div class="tile tile-a-ready">HS3456<span class="vin">gotowe</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Login -->
+      <div class="panel a">
+        <div class="panel-title">Ekran logowania</div>
+        <div class="login-a">
+          <div class="logo-a">
+            <div class="logo-a-mark">MG</div>
+            <div class="logo-a-text">MG CONTROL</div>
+            <div class="logo-a-sub">System Logistyki Salonu</div>
+          </div>
+          <div class="btn-google-a"><div class="g-icon"></div> Zaloguj się przez Google</div>
+          <div class="divider-a">lub</div>
+          <div class="input-a">E-mail</div>
+          <div class="input-a">Hasło</div>
+          <div class="btn-primary-a">Zaloguj się</div>
+          <div style="text-align:center;font-size:10px;color:#334155;margin-top:-4px;">
+            Zapomniałem hasła · Zarejestruj się
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 3: Strefa -->
+      <div class="panel a">
+        <div class="panel-title">Widok strefy na mapie</div>
+        <div class="zone-strip zone-a">
+          <div class="zone-name">Strefa 1 — Plac główny</div>
+          <div class="zone-meta">7/9 miejsc · strict</div>
+          <div class="tiles-grid" style="margin-top:4px;">
+            <div class="tile tile-a-ready" style="width:44px;">HS0001<span class="vin"></span></div>
+            <div class="tile tile-a-ordered" style="width:44px;">ZS0022<span class="vin"></span></div>
+            <div class="tile tile-a-new" style="width:44px;">MG0333<span class="vin"></span></div>
+            <div class="tile tile-a-damaged" style="width:44px;">HS0444<span class="vin"></span></div>
+            <div class="tile tile-a-ready" style="width:44px;">ZS0555<span class="vin"></span></div>
+            <div class="tile tile-a-new" style="width:44px;">HS0666<span class="vin"></span></div>
+            <div class="tile tile-a-ordered" style="width:44px;">MG0777<span class="vin"></span></div>
+            <div style="width:44px;height:44px;border:1.5px dashed #1e2238;border-radius:8px;"></div>
+            <div style="width:44px;height:44px;border:1.5px dashed #1e2238;border-radius:8px;"></div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#334155;margin-top:12px;">
+          ↑ Przerywana ramka = wolny slot<br>
+          Drag & drop dla Logistyka
+        </div>
+      </div>
+
+    </div>
+    <div class="choose-bar">
+      <button class="choose-btn choose-a" onclick="choose('A')">✓ Wybieram Industrial Dark (A)</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ B ═══ -->
+  <div class="proposal b">
+    <div class="proposal-header">
+      <div>
+        <div class="proposal-label">Propozycja B</div>
+        <div class="proposal-name">Clean Fleet</div>
+        <div class="proposal-desc">Jasny, przejrzysty interfejs w stylu SaaS. Łatwy do czytania w pełnym słońcu (pracownicy placu latem). Wysoki kontrast, minimalistyczny.</div>
+      </div>
+    </div>
+    <div class="proposal-body">
+
+      <div class="panel b">
+        <div class="panel-title">Paleta kolorów</div>
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="swatches-row">
+            <div class="swatch" style="background:#f0f4f8;border:1px solid #e2e8f0"><span style="color:#64748b">#f0f4f8</span></div>
+            <div class="swatch" style="background:#fff;border:1px solid #e2e8f0"><span style="color:#64748b">#ffffff</span></div>
+            <div class="swatch" style="background:#e2e8f0"><span style="color:#64748b">#e2e8f0</span></div>
+            <div class="swatch" style="background:#0f172a"><span style="color:#fff;font-size:7px">#0f172a</span></div>
+          </div>
+          <div class="swatches-row">
+            <div class="swatch" style="background:#1d4ed8"><span style="color:#fff;font-size:8px">Akcent</span></div>
+            <div class="swatch" style="background:#16a34a"><span style="color:#fff;font-size:8px">Gotowe</span></div>
+            <div class="swatch" style="background:#ca8a04"><span style="color:#fff;font-size:8px">Zlecone</span></div>
+            <div class="swatch" style="background:#dc2626"><span style="color:#fff;font-size:8px">Szkoda</span></div>
+          </div>
+        </div>
+        <div style="margin-top:24px;">
+          <div class="panel-title" style="margin-bottom:10px;color:#0f172a;">Kafelki pojazdów</div>
+          <div class="tiles-grid">
+            <div class="tile tile-b-new">HS1234<span class="vin" style="color:#94a3b8">nowe</span></div>
+            <div class="tile tile-b-ordered">MG5678<span class="vin">zlecone</span></div>
+            <div class="tile tile-b-damaged">ZS9012<span class="vin">szkoda</span></div>
+            <div class="tile tile-b-ready">HS3456<span class="vin">gotowe</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel b">
+        <div class="panel-title">Ekran logowania</div>
+        <div class="login-b">
+          <div style="text-align:center;">
+            <div class="logo-b-mark">MG</div>
+            <div class="logo-b-text">MG CONTROL</div>
+            <div class="logo-b-sub">System Logistyki Salonu</div>
+          </div>
+          <div class="btn-google-b"><div class="g-icon"></div> Zaloguj się przez Google</div>
+          <div class="divider-b">lub</div>
+          <div class="input-b">E-mail</div>
+          <div class="input-b">Hasło</div>
+          <div class="btn-primary-b">Zaloguj się</div>
+          <div style="text-align:center;font-size:10px;color:#94a3b8;margin-top:-4px;">
+            Zapomniałem hasła · Zarejestruj się
+          </div>
+        </div>
+      </div>
+
+      <div class="panel b">
+        <div class="panel-title">Widok strefy na mapie</div>
+        <div class="zone-strip zone-b">
+          <div class="zone-name" style="color:#0f172a;">Strefa 1 — Plac główny</div>
+          <div class="zone-meta" style="color:#64748b;">7/9 miejsc · strict</div>
+          <div class="tiles-grid" style="margin-top:4px;">
+            <div class="tile tile-b-ready" style="width:44px;">HS0001<span class="vin"></span></div>
+            <div class="tile tile-b-ordered" style="width:44px;">ZS0022<span class="vin"></span></div>
+            <div class="tile tile-b-new" style="width:44px;">MG0333<span class="vin"></span></div>
+            <div class="tile tile-b-damaged" style="width:44px;">HS0444<span class="vin"></span></div>
+            <div class="tile tile-b-ready" style="width:44px;">ZS0555<span class="vin"></span></div>
+            <div class="tile tile-b-new" style="width:44px;">HS0666<span class="vin"></span></div>
+            <div class="tile tile-b-ordered" style="width:44px;">MG0777<span class="vin"></span></div>
+            <div style="width:44px;height:44px;border:1.5px dashed #e2e8f0;border-radius:8px;background:#f8fafc;"></div>
+            <div style="width:44px;height:44px;border:1.5px dashed #e2e8f0;border-radius:8px;background:#f8fafc;"></div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:12px;">
+          ↑ Przerywana ramka = wolny slot<br>
+          Drag & drop dla Logistyka
+        </div>
+      </div>
+
+    </div>
+    <div class="choose-bar">
+      <button class="choose-btn choose-b" onclick="choose('B')">✓ Wybieram Clean Fleet (B)</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ C ═══ -->
+  <div class="proposal c">
+    <div class="proposal-header">
+      <div>
+        <div class="proposal-label">Propozycja C</div>
+        <div class="proposal-name">Forge</div>
+        <div class="proposal-desc">Ciemny motyw z pomarańczowym akcentem — nawiązanie do przemysłu i siły. Energetyczny, wyróżniający się. Dobry do pracy nocnej i w halach.</div>
+      </div>
+    </div>
+    <div class="proposal-body">
+
+      <div class="panel c">
+        <div class="panel-title">Paleta kolorów</div>
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="swatches-row">
+            <div class="swatch" style="background:#0c0e10"><span>#0c0e10</span></div>
+            <div class="swatch" style="background:#13161b"><span>#13161b</span></div>
+            <div class="swatch" style="background:#1c2028"><span>#1c2028</span></div>
+            <div class="swatch" style="background:#2a303c"><span>#2a303c</span></div>
+          </div>
+          <div class="swatches-row">
+            <div class="swatch" style="background:#f97316"><span>Akcent</span></div>
+            <div class="swatch" style="background:#22c55e"><span>Gotowe</span></div>
+            <div class="swatch" style="background:#eab308"><span>Zlecone</span></div>
+            <div class="swatch" style="background:#ef4444"><span>Szkoda</span></div>
+          </div>
+        </div>
+        <div style="margin-top:24px;">
+          <div class="panel-title" style="margin-bottom:10px;">Kafelki pojazdów</div>
+          <div class="tiles-grid">
+            <div class="tile tile-c-new">HS1234<span class="vin">nowe</span></div>
+            <div class="tile tile-c-ordered">MG5678<span class="vin">zlecone</span></div>
+            <div class="tile tile-c-damaged">ZS9012<span class="vin">szkoda</span></div>
+            <div class="tile tile-c-ready">HS3456<span class="vin">gotowe</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel c">
+        <div class="panel-title">Ekran logowania</div>
+        <div class="login-c">
+          <div style="text-align:center;">
+            <div class="logo-c-mark">MG</div>
+            <div class="logo-c-text">MG CONTROL</div>
+            <div class="logo-c-sub">System Logistyki Salonu</div>
+          </div>
+          <div class="btn-google-c"><div class="g-icon"></div> Zaloguj się przez Google</div>
+          <div class="divider-c">lub</div>
+          <div class="input-c">E-mail</div>
+          <div class="input-c">Hasło</div>
+          <div class="btn-primary-c">Zaloguj się</div>
+          <div style="text-align:center;font-size:10px;color:#334155;margin-top:-4px;">
+            Zapomniałem hasła · Zarejestruj się
+          </div>
+        </div>
+      </div>
+
+      <div class="panel c">
+        <div class="panel-title">Widok strefy na mapie</div>
+        <div class="zone-strip zone-c">
+          <div class="zone-name">Strefa 1 — Plac główny</div>
+          <div class="zone-meta">7/9 miejsc · strict</div>
+          <div class="tiles-grid" style="margin-top:4px;">
+            <div class="tile tile-c-ready" style="width:44px;">HS0001<span class="vin"></span></div>
+            <div class="tile tile-c-ordered" style="width:44px;">ZS0022<span class="vin"></span></div>
+            <div class="tile tile-c-new" style="width:44px;">MG0333<span class="vin"></span></div>
+            <div class="tile tile-c-damaged" style="width:44px;">HS0444<span class="vin"></span></div>
+            <div class="tile tile-c-ready" style="width:44px;">ZS0555<span class="vin"></span></div>
+            <div class="tile tile-c-new" style="width:44px;">HS0666<span class="vin"></span></div>
+            <div class="tile tile-c-ordered" style="width:44px;">MG0777<span class="vin"></span></div>
+            <div style="width:44px;height:44px;border:1.5px dashed #1c2028;border-radius:8px;"></div>
+            <div style="width:44px;height:44px;border:1.5px dashed #1c2028;border-radius:8px;"></div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#334155;margin-top:12px;">
+          ↑ Przerywana ramka = wolny slot<br>
+          Drag & drop dla Logistyka
+        </div>
+      </div>
+
+    </div>
+    <div class="choose-bar">
+      <button class="choose-btn choose-c" onclick="choose('C')">✓ Wybieram Forge (C)</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  Możesz też wybrać kombinację — np. "A, ale z kafelkami jak w C" lub "B w dzień, A w nocy".<br>
+  Wpisz swój wybór w rozmowie z Claude Code.
+</div>
+
+<script>
+function choose(v) {
+  alert('Świetnie! Wróć do Claude Code i napisz: "Wybieram ' + v + '"');
+}
+</script>
+</body>
+</html>
