@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthListener } from "@/hooks/useAuth";
-import { handleGoogleRedirect } from "@/lib/auth";
 import GoogleLoginButton from "@/components/auth/GoogleLoginButton";
 import LoginForm from "@/components/auth/LoginForm";
 import RegisterForm from "@/components/auth/RegisterForm";
@@ -24,20 +23,6 @@ export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
   const { user, isLoading } = useAuthStore();
-
-  // Handle Google redirect result on page load
-  useEffect(() => {
-    handleGoogleRedirect()
-      .then((result) => {
-        if (result?.isNew) {
-          toast.info("Konto zostało utworzone.");
-        }
-      })
-      .catch((err: Error) => {
-        toast.error(err.message);
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (params.get("reason") === "disabled") {
