@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuth()      { return request.auth != null; }
+    function uid()         { return request.auth.uid; }
+
+    // documents/{vehicleId}/{filename}
+    match /documents/{vehicleId}/{filename} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+                    && request.resource.size < 20 * 1024 * 1024
+                    && request.resource.contentType.matches(
+                         "application/(pdf|msword|vnd\\.openxmlformats.*|vnd\\.ms-excel.*)"
+                       + "|image/(jpeg|png|gif|webp)");
+      allow delete: if isAuth();
+    }
+
+    // damage photos
+    match /damage/{reportId}/{filename} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+                    && request.resource.size < 20 * 1024 * 1024
+                    && request.resource.contentType.matches("image/(jpeg|png|gif|webp)");
+      allow delete: if isAuth();
+    }
+  }
+}

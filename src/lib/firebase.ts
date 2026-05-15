@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth";
 import { getFirestore, enableNetwork, disableNetwork } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging, type Messaging } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,6 +18,12 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Messaging is browser-only (not available in SSR/SW context)
+export let messaging: Messaging | null = null;
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  try { messaging = getMessaging(app); } catch { /* unsupported browser */ }
+}
 
 // Set session persistence once at module level
 if (typeof window !== "undefined") {

@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { ToastContainer } from "react-toastify";
 import { useAuthStore } from "@/store/authStore";
 import OnlineGuard from "@/components/layout/OnlineGuard";
+import { useFcmToken } from "@/hooks/useFcmToken";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const theme = useAuthStore((s) => s.theme);
   const [mounted, setMounted] = useState(false);
+  useFcmToken();
 
   useEffect(() => {
     setMounted(true);

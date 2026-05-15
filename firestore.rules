@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ───────────────────────────────────────────────────────────
+    function isAuth()      { return request.auth != null; }
+    function uid()         { return request.auth.uid; }
+    function userDoc()     { return get(/databases/$(database)/documents/users/$(uid())); }
+    function role()        { return userDoc().data.role; }
+
+    function isLogistics() { return isAuth() && role() == "logistics"; }
+    function isSales()     { return isAuth() && role() == "salesperson"; }
+    function isMechanic()  { return isAuth() && role() == "mechanic"; }
+    function isDetailer()  { return isAuth() && role() == "detailer"; }
+    function isStaff()     { return isAuth() && role() in ["logistics","salesperson","mechanic","detailer"]; }
+
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // ─── users ─────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if isAuth() && (uid() == userId || isLogistics());
+      allow create: if isLogistics();
+      allow update: if isLogistics()
+                    || (isAuth() && uid() == userId
+                        && changedOnly(["fcmToken","lastSeen","updatedAt"]));
+      allow delete: if isLogistics();
+    }
+
+    // ─── allowedEmails ─────────────────────────────────────────────────────
+    match /allowedEmails/{email} {
+      allow read:  if isAuth();
+      allow write: if isLogistics();
+    }
+
+    // ─── vehicles ──────────────────────────────────────────────────────────
+    match /vehicles/{vehicleId} {
+      allow read:   if isStaff();
+      allow create: if isLogistics() || isSales();
+      allow update: if isLogistics() || isSales()
+                    || (isMechanic() && changedOnly([
+                         "status","updatedAt","updatedBy","activeServiceOrderIds"
+                       ]));
+      allow delete: if isLogistics();
+
+      match /logs/{logId} {
+        allow read:          if isStaff();
+        allow create:        if isStaff();
+        allow update, delete: if isLogistics();
+      }
+    }
+
+    // ─── serviceOrders ─────────────────────────────────────────────────────
+    match /serviceOrders/{orderId} {
+      allow read:   if isStaff();
+      allow create: if isLogistics() || isSales() || isMechanic();
+      allow update: if isLogistics() || isMechanic()
+                    || (isSales() && changedOnly(["status","updatedAt"]));
+      allow delete: if isLogistics();
+    }
+
+    // ─── damageReports ─────────────────────────────────────────────────────
+    match /damageReports/{reportId} {
+      allow read:   if isStaff();
+      allow create: if isStaff();
+      allow update: if isLogistics() || isMechanic();
+      allow delete: if isLogistics();
+    }
+
+    // ─── washQueue ─────────────────────────────────────────────────────────
+    match /washQueue/{itemId} {
+      allow read:   if isStaff();
+      allow create: if isLogistics() || isSales();
+      allow update: if isLogistics() || isDetailer() || isMechanic();
+      allow delete: if isLogistics();
+    }
+
+    // ─── documents ─────────────────────────────────────────────────────────
+    match /documents/{docId} {
+      allow read:   if isStaff();
+      allow create: if isLogistics() || isSales();
+      allow update: if isLogistics();
+      allow delete: if isLogistics() || isSales();
+    }
+
+    // ─── deliveries ────────────────────────────────────────────────────────
+    match /deliveries/{deliveryId} {
+      allow read:   if isStaff();
+      allow create: if isLogistics();
+      allow update: if isLogistics() || isSales();
+      allow delete: if isLogistics();
+    }
+
+    // ─── notifications ─────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read:   if isAuth()
+                    && (resource.data.recipientUid == uid() || isLogistics());
+      allow create: if isLogistics();
+      allow update: if isAuth()
+                    && (resource.data.recipientUid == uid() || isLogistics())
+                    && changedOnly(["read","readAt"]);
+      allow delete: if isLogistics();
+    }
+
+    // ─── zones ─────────────────────────────────────────────────────────────
+    match /zones/{zoneId} {
+      allow read:  if isStaff();
+      allow write: if isLogistics();
+    }
+
+    // ─── appErrors ─────────────────────────────────────────────────────────
+    match /appErrors/{errorId} {
+      allow read:   if isLogistics();
+      allow create: if isStaff();
+      allow update: if isLogistics();
+      allow delete: if isLogistics();
+    }
+  }
+}
