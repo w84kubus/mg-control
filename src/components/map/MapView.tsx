@@ -105,15 +105,58 @@ function Controls() {
 
 // ─── Draggable vehicle dot ────────────────────────────────────────────────────
 
-const DOT_W = 44;
-const DOT_H = 25;
+// Default (maximum) dot size – scaled down when a zone overflows.
+const DOT_W_MAX = 44;
+const DOT_H_MAX = 25;
+const DOT_GAP_X = 6;
+const DOT_GAP_Y = 5;
+const ZONE_PAD = 4;
+const BADGE_H = 20; // vertical space reserved for the occupancy badge
+
+/** Compute dot dimensions and grid layout that fits `count` vehicles in a zone. */
+function fitGrid(b: { w: number; h: number }, count: number) {
+  const availW = b.w - ZONE_PAD * 2;
+  const availH = b.h - ZONE_PAD - BADGE_H;
+
+  if (count === 0) return { dotW: DOT_W_MAX, dotH: DOT_H_MAX, cols: 1, stepX: 0, stepY: 0 };
+
+  // Start with default size and shrink if needed
+  let dotW = DOT_W_MAX;
+  let dotH = DOT_H_MAX;
+  let gapX = DOT_GAP_X;
+  let gapY = DOT_GAP_Y;
+
+  // Try to fit with decreasing scale (100% → 40%)
+  for (let scale = 1.0; scale >= 0.4; scale -= 0.05) {
+    dotW = Math.round(DOT_W_MAX * scale);
+    dotH = Math.round(DOT_H_MAX * scale);
+    gapX = Math.max(1, Math.round(DOT_GAP_X * scale));
+    gapY = Math.max(1, Math.round(DOT_GAP_Y * scale));
+
+    const stepX = dotW + gapX;
+    const stepY = dotH + gapY;
+    const cols = Math.max(1, Math.floor(availW / stepX));
+    const rows = Math.ceil(count / cols);
+    const neededH = rows * stepY;
+
+    if (neededH <= availH) {
+      return { dotW, dotH, cols, stepX, stepY };
+    }
+  }
+
+  // Absolute minimum – just cram them in
+  const stepX = dotW + gapX;
+  const stepY = dotH + gapY;
+  const cols = Math.max(1, Math.floor(availW / stepX));
+  return { dotW, dotH, cols, stepX, stepY };
+}
 
 function DraggableVehicle({
-  vehicle, fromZoneId, canDrag, onClick, selected, svgX, svgY,
+  vehicle, fromZoneId, canDrag, onClick, selected, svgX, svgY, dotW, dotH,
 }: {
   vehicle: Vehicle; fromZoneId: string | null; canDrag: boolean;
   onClick: (e: React.MouseEvent) => void; selected: boolean;
-  svgX: number; svgY: number;
+  svgX: number; svgY: number; dotW: number; dotH: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: vehicle.id,
@@ -121,6 +164,7 @@ function DraggableVehicle({
     data: { vehicle, fromZoneId },
   });
   const color = STATUS_COLORS[vehicle.status] ?? "#64748b";
+  const fontSize = Math.max(5, Math.round(dotW * 0.18));
 
   return (
     <g
@@ -136,15 +180,15 @@ function DraggableVehicle({
       }}
     >
       <rect
-        x={svgX} y={svgY} width={DOT_W} height={DOT_H} rx={4}
+        x={svgX} y={svgY} width={dotW} height={dotH} rx={Math.min(4, dotW * 0.1)}
         fill={color}
         stroke={selected ? "#ffffff" : "rgba(0,0,0,0.3)"}
         strokeWidth={selected ? 2 : 1}
       />
       <text
-        x={svgX + DOT_W / 2} y={svgY + DOT_H / 2 + 1}
+        x={svgX + dotW / 2} y={svgY + dotH / 2 + 1}
         textAnchor="middle" dominantBaseline="middle"
-        fontSize={8} fontFamily="'Courier New', monospace" fontWeight="bold"
+        fontSize={fontSize} fontFamily="'Courier New', monospace" fontWeight="bold"
         fill="#ffffff"
         style={{ pointerEvents: "none", userSelect: "none" }}
       >
@@ -182,13 +226,10 @@ function DroppableZone({
     ? "rgba(59,130,246,0.9)"
     : "transparent";
 
-  // Vehicle grid layout
-  const PAD = 8;
-  const STEP_X = DOT_W + 6;
-  const STEP_Y = DOT_H + 5;
-  const cols = Math.max(1, Math.floor((b.w - PAD * 2) / STEP_X));
-  const vStartX = b.x + PAD;
-  const vStartY = b.y + 24;
+  // Vehicle grid — auto-scales dots to fit inside the zone bounds
+  const { dotW, dotH, cols, stepX, stepY } = fitGrid(b, vehicles.length);
+  const vStartX = b.x + ZONE_PAD;
+  const vStartY = b.y + BADGE_H;
 
   return (
     <g
@@ -225,7 +266,7 @@ function DroppableZone({
         </>
       )}
 
-      {/* Vehicle dots */}
+      {/* Vehicle dots — clipped to zone bounds */}
       {vehicles.map((v, i) => (
         <DraggableVehicle
           key={v.id}
@@ -233,8 +274,10 @@ function DroppableZone({
           fromZoneId={zone.id}
           canDrag={canDrag}
           selected={v.id === selectedVehicleId}
-          svgX={vStartX + (i % cols) * STEP_X}
-          svgY={vStartY + Math.floor(i / cols) * STEP_Y}
+          dotW={dotW}
+          dotH={dotH}
+          svgX={vStartX + (i % cols) * stepX}
+          svgY={vStartY + Math.floor(i / cols) * stepY}
           onClick={(e) => { e.stopPropagation(); onVehicleClick(v); }}
         />
       ))}
@@ -426,7 +469,7 @@ export default function MapView({
         {activeVehicle ? (
           <div
             className="rounded shadow-lg"
-            style={{ width: DOT_W, height: DOT_H, background: activeColor, opacity: 0.95 }}
+            style={{ width: DOT_W_MAX, height: DOT_H_MAX, background: activeColor, opacity: 0.95 }}
           />
         ) : null}
       </DragOverlay>
