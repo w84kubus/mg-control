@@ -319,10 +319,7 @@ export default function MapView({
 }: Props) {
   const { user } = useAuthStore();
   const { zones: allZones } = useZonesStore();
-  // Use a ref for drag state so TransformWrapper doesn't re-render on drag
-  // start/end — that was causing the view to jump when panning prop changed.
-  const isDraggingRef = useRef(false);
-  const [activeVehicle, setActiveVehicle] = useState<Vehicle | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const canDrag = user ? canUserMoveVehicle(user.role) : false;
 
@@ -332,14 +329,11 @@ export default function MapView({
   );
 
   const onDragStart = useCallback((e: DragStartEvent) => {
-    const v = (e.active.data.current as { vehicle: Vehicle })?.vehicle;
-    setActiveVehicle(v ?? null);
-    isDraggingRef.current = true;
+    setIsDragging(true);
   }, []);
 
   const onDragEnd = useCallback(async (e: DragEndEvent) => {
-    isDraggingRef.current = false;
-    setActiveVehicle(null);
+    setIsDragging(false);
 
     const { active, over } = e;
     if (!over || !user) return;
@@ -376,8 +370,6 @@ export default function MapView({
     }
   }, [user, allZones]);
 
-  // activeVehicle is tracked for future drag-overlay enhancements
-  void activeVehicle;
 
   // Fit-to-container scale: the map can be zoomed out only until the whole
   // floor plan is visible — never smaller.
@@ -424,7 +416,7 @@ export default function MapView({
           smooth={false}
           wheel={{ step: 0.07 }}
           pinch={{ step: 3 }}
-          panning={{ velocityDisabled: true }}
+          panning={{ disabled: isDragging, velocityDisabled: true }}
           doubleClick={{ disabled: true }}
         >
           <>
