@@ -3,7 +3,7 @@
 import { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import {
-  DndContext, DragOverlay, useSensor, useSensors,
+  DndContext, useSensor, useSensors,
   MouseSensor, TouchSensor, useDroppable, useDraggable,
   type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
@@ -319,24 +319,26 @@ export default function MapView({
 }: Props) {
   const { user } = useAuthStore();
   const { zones: allZones } = useZonesStore();
+  // Use a ref for drag state so TransformWrapper doesn't re-render on drag
+  // start/end — that was causing the view to jump when panning prop changed.
+  const isDraggingRef = useRef(false);
   const [activeVehicle, setActiveVehicle] = useState<Vehicle | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
 
   const canDrag = user ? canUserMoveVehicle(user.role) : false;
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 10 } })
   );
 
-  function onDragStart(e: DragStartEvent) {
+  const onDragStart = useCallback((e: DragStartEvent) => {
     const v = (e.active.data.current as { vehicle: Vehicle })?.vehicle;
     setActiveVehicle(v ?? null);
-    setIsDragging(true);
-  }
+    isDraggingRef.current = true;
+  }, []);
 
-  async function onDragEnd(e: DragEndEvent) {
-    setIsDragging(false);
+  const onDragEnd = useCallback(async (e: DragEndEvent) => {
+    isDraggingRef.current = false;
     setActiveVehicle(null);
 
     const { active, over } = e;
@@ -372,9 +374,10 @@ export default function MapView({
     } catch {
       toast.error("Nie udało się przenieść pojazdu.");
     }
-  }
+  }, [user, allZones]);
 
-  const activeColor = activeVehicle ? (STATUS_COLORS[activeVehicle.status] ?? "#64748b") : "#64748b";
+  // activeVehicle is tracked for future drag-overlay enhancements
+  void activeVehicle;
 
   // Fit-to-container scale: the map can be zoomed out only until the whole
   // floor plan is visible — never smaller.
@@ -421,7 +424,7 @@ export default function MapView({
           smooth={false}
           wheel={{ step: 0.07 }}
           pinch={{ step: 3 }}
-          panning={{ disabled: isDragging }}
+          panning={{ velocityDisabled: true }}
           doubleClick={{ disabled: true }}
         >
           <>
@@ -465,14 +468,9 @@ export default function MapView({
         )}
       </div>
 
-      <DragOverlay>
-        {activeVehicle ? (
-          <div
-            className="rounded shadow-lg"
-            style={{ width: DOT_W_MAX, height: DOT_H_MAX, background: activeColor, opacity: 0.95 }}
-          />
-        ) : null}
-      </DragOverlay>
+      {/* DragOverlay intentionally omitted — it renders outside
+          TransformComponent causing coordinate mismatches and view jumps.
+          The dragged vehicle remains visible in-place at reduced opacity. */}
     </DndContext>
   );
 }
