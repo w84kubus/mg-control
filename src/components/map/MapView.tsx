@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import {
   DndContext, DragOverlay, useSensor, useSensors,
@@ -375,7 +375,8 @@ export default function MapView({
           initialPositionX={0}
           initialPositionY={0}
           limitToBounds={false}
-          wheel={{ step: 0.015 }}
+          smooth={false}
+          wheel={{ step: 0.07 }}
           pinch={{ step: 3 }}
           panning={{ disabled: isDragging }}
           doubleClick={{ disabled: true }}
