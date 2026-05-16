@@ -29,8 +29,11 @@ service cloud.firestore {
     }
 
     // ─── allowedEmails ─────────────────────────────────────────────────────
+    // get: public (needed for registration whitelist check before auth)
+    // list: staff only (don't expose full whitelist to unauthenticated users)
     match /allowedEmails/{email} {
-      allow read:  if isAuth();
+      allow get:   if true;
+      allow list:  if isAuth();
       allow write: if isLogistics();
     }
 
