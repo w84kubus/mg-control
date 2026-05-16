@@ -10,6 +10,7 @@ import { useFcmToken } from "@/hooks/useFcmToken";
 const HEAD = (
   <>
     <title>MG Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <meta name="description" content="System Logistyki Salonu MG Plaza Warszawa" />
     <meta name="theme-color" content="#4361ee" />
     <meta name="mobile-web-app-capable" content="yes" />

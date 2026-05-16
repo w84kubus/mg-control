@@ -129,6 +129,7 @@ export default function ArchivePage() {
               border: "1px solid var(--bg-border)",
             }}
           >
+            <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--bg-border2)" }}>
@@ -175,6 +176,7 @@ export default function ArchivePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Mobile list */}

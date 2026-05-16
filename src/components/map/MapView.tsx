@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import {
   DndContext, DragOverlay, useSensor, useSensors,
@@ -18,38 +18,69 @@ import { useZonesStore } from "@/store/zonesStore";
 import type { Zone, Vehicle } from "@/types";
 import { STATUS_COLORS } from "./VehicleTile";
 
-// ─── Zone positions (% of SVG 1088×1098) ─────────────────────────────────────
-// Dach rows are pixel-accurate; others are approximate.
+// ─── SVG canvas & zone polygons ───────────────────────────────────────────────
+// Coordinate space matches the source floor-plan SVG (public/floorplan.svg) 1:1.
+// All zone shapes below are the exact rectangles/quads extracted from that file,
+// so the interactive overlay lines up pixel-perfectly with the drawn plan.
 
-export type ZonePos = { x: number; y: number; w: number; h: number };
+export const SVG_W = 1088;
+export const SVG_H = 1098;
 
-export const ZONE_POSITIONS: Record<string, ZonePos> = {
-  strefa_ladownice:  { x: 3,    y: 2,    w: 25,   h: 5   },
-  strefa_1:          { x: 17,   y: 6,    w: 21,   h: 27  },
-  strefa_2:          { x: 3,    y: 16,   w: 13,   h: 16  },
-  strefa_3:          { x: 3,    y: 33,   w: 13,   h: 11  },
-  strefa_4:          { x: 3,    y: 45,   w: 13,   h: 11  },
-  strefa_5:          { x: 3,    y: 57,   w: 13,   h: 11  },
-  strefa_6:          { x: 3,    y: 69,   w: 13,   h: 11  },
-  strefa_7:          { x: 22,   y: 33,   w: 22,   h: 6   },
-  garaz:             { x: 19,   y: 19,   w: 12,   h: 13  },
-  salon:             { x: 39,   y: 6,    w: 20,   h: 30  },
-  myjnia_salon:      { x: 44,   y: 36,   w: 14,   h: 9   },
-  hala_1:            { x: 39,   y: 36,   w: 14,   h: 9   },
-  hala_2:            { x: 39,   y: 46,   w: 14,   h: 9   },
-  hala_3:            { x: 39,   y: 56,   w: 14,   h: 9   },
-  recepcja_serwisu:  { x: 39,   y: 66,   w: 14,   h: 8   },
-  myjnia_serwis:     { x: 54,   y: 47,   w: 11,   h: 9   },
-  blacharnia_hala:   { x: 65,   y: 6,    w: 7,    h: 32  },
-  myjnia_blacharnia: { x: 65,   y: 90,   w: 7,    h: 8   },
-  tunel:             { x: 65,   y: 39,   w: 7,    h: 52  },
-  dach_rzad_1:       { x: 72.4, y: 39.7, w: 23.3, h: 7.8 },
-  dach_rzad_2:       { x: 72.4, y: 48.2, w: 23.3, h: 7.8 },
-  dach_rzad_3:       { x: 72.4, y: 56.8, w: 23.3, h: 7.8 },
-  dach_rzad_4:       { x: 72.4, y: 65.4, w: 23.3, h: 7.8 },
-  dach_rzad_5:       { x: 72.4, y: 74.0, w: 23.3, h: 7.8 },
-  dach_rzad_6:       { x: 72.4, y: 82.6, w: 23.3, h: 7.8 },
+// Base path for the static floor-plan asset (GitHub Pages basePath aware).
+const FLOORPLAN_SRC = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/floorplan.svg`;
+
+// Exact shape points lifted verbatim from public/floorplan.svg (angled shapes
+// preserved) so every interactive overlay matches the drawn plan pixel-for-pixel.
+export const ZONE_POLYGONS: Record<string, string> = {
+  // ── Top buildings ──────────────────────────────────────────────────────────
+  salon:             "37,31 207,31 207,236 37,236",
+  wydawka:           "206,30 306,30 306,236 206,236",
+  myjnia_salon:      "327,31 526,31 526,236 327,236",
+  garaz:             "772,30 1056,30 1056,236 772,236",
+
+  // ── Middle transition (angled) ─────────────────────────────────────────────
+  tunel:             "210,259 299,259 323,364 234,364",
+  strefa_ladownice:  "66,363 191,363 191,418 66,418",
+  strefa_1:          "234,363 735,363 706,418 234,418",
+
+  // ── Left parking strip (angled parallelograms) ─────────────────────────────
+  strefa_2:          "179,473 179,618 34,635 34,487",
+  strefa_3:          "179,618 179,769 34,788 34,635",
+  strefa_4:          "179,769 179,914 34,938 34,788",
+  strefa_5:          "179,914 179,1048 60,1068 34,936",
+  strefa_6:          "179,981 574,981 574,1068 179,1068",
+
+  // ── Service centre ─────────────────────────────────────────────────────────
+  hala_1:            "244,487 563,487 563,593 244,593",
+  hala_2:            "244,602 472,602 472,712 244,712",
+  recepcja_serwisu:  "244,721 412,721 412,795 244,795",
+  hala_3:            "244,806 472,806 472,903 244,903",
+  myjnia_serwis:     "244,915 422,915 422,970 244,970",
+  strefa_7:          "573,478 629,512 629,1067 573,1067",
+
+  // ── Blacharnia: one drawn block. Right column = the 6 drawn <rect> roof-row
+  // boxes (exact coords); left column = body (top) + wash (bottom). ───────────
+  dach_rzad_6:       "788,436 1041,436 1041,521 788,521",
+  dach_rzad_5:       "788,530 1041,530 1041,615 788,615",
+  dach_rzad_4:       "788,624 1041,624 1041,709 788,709",
+  dach_rzad_3:       "788,718 1041,718 1041,803 788,803",
+  dach_rzad_2:       "788,812 1041,812 1041,898 788,898",
+  dach_rzad_1:       "788,907 1042,907 1042,992 788,992",
+  // myjnia rect is rotate(180)-transformed in the source SVG; these are the
+  // real on-screen corners. hala = the rest of the left column above it.
+  blacharnia_hala:   "710,431 788,422 788,882 710,882",
+  myjnia_blacharnia: "722,884 778,884 778,991 722,991",
 };
+
+// Parse polygon points string → bounding box + centroid
+function polyBounds(pts: string) {
+  const n = pts.split(/[ ,]+/).map(Number);
+  const xs: number[] = [], ys: number[] = [];
+  for (let i = 0; i < n.length; i += 2) { xs.push(n[i]); ys.push(n[i + 1]); }
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const mx = Math.max(...xs), my = Math.max(...ys);
+  return { x, y, w: mx - x, h: my - y, cx: (x + mx) / 2, cy: (y + my) / 2 };
+}
 
 // ─── Zoom controls ────────────────────────────────────────────────────────────
 
@@ -74,18 +105,15 @@ function Controls() {
 
 // ─── Draggable vehicle dot ────────────────────────────────────────────────────
 
+const DOT_W = 44;
+const DOT_H = 25;
+
 function DraggableVehicle({
-  vehicle,
-  fromZoneId,
-  canDrag,
-  onClick,
-  selected,
+  vehicle, fromZoneId, canDrag, onClick, selected, svgX, svgY,
 }: {
-  vehicle: Vehicle;
-  fromZoneId: string | null;
-  canDrag: boolean;
-  onClick: (e: React.MouseEvent) => void;
-  selected: boolean;
+  vehicle: Vehicle; fromZoneId: string | null; canDrag: boolean;
+  onClick: (e: React.MouseEvent) => void; selected: boolean;
+  svgX: number; svgY: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: vehicle.id,
@@ -95,78 +123,138 @@ function DraggableVehicle({
   const color = STATUS_COLORS[vehicle.status] ?? "#64748b";
 
   return (
-    <div
-      ref={setNodeRef}
+    <g
+      ref={setNodeRef as unknown as (el: SVGGElement | null) => void}
       {...attributes}
       {...listeners}
       onClick={onClick}
-      title={`${vehicle.brand} ${vehicle.model} | ${vehicle.vinShort}`}
-      className="cursor-pointer rounded transition-transform hover:scale-110 shrink-0"
       style={{
-        width: 26,
-        height: 16,
-        background: color,
-        opacity: isDragging ? 0.25 : selected ? 1 : 0.82,
-        outline: selected ? "2px solid #fff" : "none",
-        outlineOffset: 1,
         transform: CSS.Translate.toString(transform),
+        cursor: canDrag ? "grab" : "default",
+        opacity: isDragging ? 0.25 : 1,
         touchAction: "none",
       }}
-    />
+    >
+      <rect
+        x={svgX} y={svgY} width={DOT_W} height={DOT_H} rx={4}
+        fill={color}
+        stroke={selected ? "#ffffff" : "rgba(0,0,0,0.3)"}
+        strokeWidth={selected ? 2 : 1}
+      />
+      <text
+        x={svgX + DOT_W / 2} y={svgY + DOT_H / 2 + 1}
+        textAnchor="middle" dominantBaseline="middle"
+        fontSize={8} fontFamily="'Courier New', monospace" fontWeight="bold"
+        fill="#ffffff"
+        style={{ pointerEvents: "none", userSelect: "none" }}
+      >
+        {vehicle.vinShort}
+      </text>
+    </g>
   );
 }
 
-// ─── Droppable zone overlay ───────────────────────────────────────────────────
-
-const ZONE_BG = { strict: "rgba(59,130,246,0.12)", flexible: "rgba(34,197,94,0.08)", blocked: "rgba(239,68,68,0.08)" };
-const ZONE_BORDER = { strict: "rgba(59,130,246,0.45)", flexible: "rgba(34,197,94,0.35)", blocked: "rgba(239,68,68,0.4)" };
+// ─── Droppable zone (SVG polygon) ─────────────────────────────────────────────
 
 function DroppableZone({
-  zone, vehicles, pos, selected, selectedVehicleId, onClick, onVehicleClick, canDrag,
+  zone, vehicles, polygonPoints, selected, selectedVehicleId,
+  onClick, onVehicleClick, canDrag,
 }: {
-  zone: Zone; vehicles: Vehicle[]; pos: ZonePos;
+  zone: Zone; vehicles: Vehicle[]; polygonPoints: string;
   selected: boolean; selectedVehicleId: string | null;
-  onClick: () => void;
-  onVehicleClick: (v: Vehicle) => void;
-  canDrag: boolean;
+  onClick: () => void; onVehicleClick: (v: Vehicle) => void; canDrag: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone.id, disabled: zone.type === "blocked" });
-
-  const bg = isOver ? "rgba(59,130,246,0.28)" : selected ? "rgba(59,130,246,0.22)" : ZONE_BG[zone.type];
-  const border = isOver ? "rgba(59,130,246,1)" : selected ? "rgba(59,130,246,0.9)" : ZONE_BORDER[zone.type];
+  const b = polyBounds(polygonPoints);
   const isFull = zone.capacity !== null && vehicles.length >= zone.capacity;
 
-  return (
-    <div
-      ref={setNodeRef}
-      onClick={onClick}
-      className="absolute cursor-pointer overflow-hidden transition-all"
-      style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${pos.w}%`, height: `${pos.h}%`, background: bg, border: `1.5px solid ${border}`, borderRadius: 5 }}
-    >
-      <div className="flex items-center justify-between px-1 py-0.5 select-none" style={{ background: "rgba(0,0,0,0.45)" }}>
-        <span className="text-[7px] font-bold truncate leading-tight" style={{ color: "#f1f5f9" }}>
-          {zone.name}
-        </span>
-        <span className="text-[7px] font-mono shrink-0 ml-1" style={{ color: isFull ? "#ef4444" : "#22c55e" }}>
-          {vehicles.length}{zone.capacity ? `/${zone.capacity}` : ""}
-        </span>
-      </div>
+  // The floor-plan SVG underneath already carries the visual zone styling and
+  // names, so the overlay stays transparent and only lights up on interaction.
+  const fill = isOver
+    ? "rgba(59,130,246,0.32)"
+    : selected
+    ? "rgba(59,130,246,0.18)"
+    : "transparent";
 
-      {vehicles.length > 0 && (
-        <div className="flex flex-wrap gap-0.5 p-0.5">
-          {vehicles.map((v) => (
-            <DraggableVehicle
-              key={v.id}
-              vehicle={v}
-              fromZoneId={zone.id}
-              canDrag={canDrag}
-              selected={v.id === selectedVehicleId}
-              onClick={(e) => { e.stopPropagation(); onVehicleClick(v); }}
-            />
-          ))}
-        </div>
+  const stroke = isOver
+    ? "rgba(59,130,246,1)"
+    : selected
+    ? "rgba(59,130,246,0.9)"
+    : "transparent";
+
+  // Vehicle grid layout
+  const PAD = 8;
+  const STEP_X = DOT_W + 6;
+  const STEP_Y = DOT_H + 5;
+  const cols = Math.max(1, Math.floor((b.w - PAD * 2) / STEP_X));
+  const vStartX = b.x + PAD;
+  const vStartY = b.y + 24;
+
+  return (
+    <g
+      ref={setNodeRef as unknown as (el: SVGGElement | null) => void}
+      onClick={onClick}
+      style={{ cursor: "pointer" }}
+    >
+      {/* Zone fill */}
+      <polygon
+        points={polygonPoints}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={isFull ? 2.5 : 1.5}
+        strokeLinejoin="round"
+      />
+
+      {/* Live occupancy badge (top-right of the zone) */}
+      {(vehicles.length > 0 || zone.capacity !== null) && (
+        <>
+          <rect
+            x={b.x + b.w - 34} y={b.y + 3} width={31} height={15} rx={3}
+            fill="rgba(15,23,42,0.82)"
+            style={{ pointerEvents: "none" }}
+          />
+          <text
+            x={b.x + b.w - 18.5} y={b.y + 11}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize={9} fontWeight="bold" fontFamily="monospace"
+            fill={isFull ? "#ef4444" : "#22c55e"}
+            style={{ pointerEvents: "none", userSelect: "none" }}
+          >
+            {vehicles.length}{zone.capacity ? `/${zone.capacity}` : ""}
+          </text>
+        </>
       )}
-    </div>
+
+      {/* Vehicle dots */}
+      {vehicles.map((v, i) => (
+        <DraggableVehicle
+          key={v.id}
+          vehicle={v}
+          fromZoneId={zone.id}
+          canDrag={canDrag}
+          selected={v.id === selectedVehicleId}
+          svgX={vStartX + (i % cols) * STEP_X}
+          svgY={vStartY + Math.floor(i / cols) * STEP_Y}
+          onClick={(e) => { e.stopPropagation(); onVehicleClick(v); }}
+        />
+      ))}
+    </g>
+  );
+}
+
+// ─── Floor-plan background (the user-authored SVG, rendered 1:1) ──────────────
+
+function MapBackground() {
+  return (
+    <image
+      href={FLOORPLAN_SRC}
+      x={0}
+      y={0}
+      width={SVG_W}
+      height={SVG_H}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ pointerEvents: "none", userSelect: "none" }}
+    />
   );
 }
 
@@ -210,44 +298,34 @@ export default function MapView({
 
     const { active, over } = e;
     if (!over || !user) return;
-
     const vehicle = (active.data.current as { vehicle: Vehicle })?.vehicle;
     if (!vehicle) return;
-
     const toZoneId = over.id as string;
     if (vehicle.zoneId === toZoneId) return;
-
     const toZone = allZones.find((z) => z.id === toZoneId);
     if (!toZone) return;
 
     const result = validateDrop(toZone, user.role);
-    if (!result.allowed) {
-      toast.warning(result.message);
-      return;
-    }
+    if (!result.allowed) { toast.warning(result.message); return; }
 
     try {
       const fromZoneName = allZones.find((z) => z.id === vehicle.zoneId)?.name ?? "Bez strefy";
-      const toZoneName = toZone.name;
-
       await updateDoc(doc(db, "vehicles", vehicle.id), {
         zoneId: toZoneId,
         updatedAt: serverTimestamp(),
         updatedBy: user.uid,
       });
-
       await addDoc(collection(db, "vehicles", vehicle.id, "logs"), {
         vehicleId: vehicle.id,
         type: "zone_change",
         action: "Przesunięcie na mapie",
-        details: `${fromZoneName} → ${toZoneName}`,
+        details: `${fromZoneName} → ${toZone.name}`,
         performedBy: user.uid,
         performedByName: user.displayName ?? "Nieznany",
         performedAt: serverTimestamp(),
         metadata: null,
       });
-
-      toast.success(`Przeniesiono do: ${toZoneName}`);
+      toast.success(`Przeniesiono do: ${toZone.name}`);
     } catch {
       toast.error("Nie udało się przenieść pojazdu.");
     }
@@ -255,74 +333,99 @@ export default function MapView({
 
   const activeColor = activeVehicle ? (STATUS_COLORS[activeVehicle.status] ?? "#64748b") : "#64748b";
 
+  // Fit-to-container scale: the map can be zoomed out only until the whole
+  // floor plan is visible — never smaller.
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Scales are computed exactly ONCE at mount and never touched again. No
+  // ResizeObserver / post-mount setState → clicking a zone (or any re-render)
+  // can never re-clamp or re-center the TransformWrapper. initS fills the
+  // width; minS is the zoom-out floor (whole plan visible).
+  const [scales, setScales] = useState<{ initS: number; minS: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const w = el.clientWidth, h = el.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    const widthFit = (w / SVG_W) * 0.99;
+    const heightFit = (h / SVG_H) * 0.98;
+    setScales({
+      initS: Number(widthFit.toFixed(4)),
+      minS: Number(Math.min(widthFit, heightFit).toFixed(4)),
+    });
+  }, []);
+
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div
+        ref={containerRef}
         className="relative rounded-2xl overflow-hidden"
         style={{
           background: "var(--bg-surface)",
           border: "1px solid var(--bg-border)",
-          height: "calc(100vh - 220px)",
-          minHeight: 400,
+          height: "calc(100dvh - 220px)",
+          minHeight: 300,
         }}
       >
+        {scales !== null && (
         <TransformWrapper
-          minScale={0.35}
-          maxScale={4}
-          initialScale={0.85}
-          centerOnInit
+          minScale={scales.minS}
+          maxScale={2}
+          initialScale={scales.initS}
+          initialPositionX={0}
+          initialPositionY={0}
           limitToBounds={false}
+          wheel={{ step: 0.015 }}
+          pinch={{ step: 3 }}
           panning={{ disabled: isDragging }}
+          doubleClick={{ disabled: true }}
         >
           <>
             <Controls />
             <TransformComponent
               wrapperStyle={{ width: "100%", height: "100%" }}
-              contentStyle={{ width: 1088, height: 1098, position: "relative" }}
+              contentStyle={{ width: SVG_W, height: SVG_H, position: "relative" }}
             >
-              {/* SVG background */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/map-background.svg"
-                alt="Mapa placu MG Plaza"
-                width={1088}
-                height={1098}
-                style={{ display: "block", userSelect: "none" }}
-                draggable={false}
-              />
+              <svg
+                width={SVG_W}
+                height={SVG_H}
+                viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+                style={{ display: "block", background: "var(--bg-surface2)", borderRadius: 8 }}
+              >
+                <MapBackground />
 
-              {/* Zone overlays */}
-              {zones.map((zone) => {
-                const pos = ZONE_POSITIONS[zone.id];
-                if (!pos) return null;
-                const zoneVehicles = vehicles.filter(
-                  (v) => v.zoneId === zone.id && filteredVehicleIds.has(v.id)
-                );
-                return (
-                  <DroppableZone
-                    key={zone.id}
-                    zone={zone}
-                    vehicles={zoneVehicles}
-                    pos={pos}
-                    selected={selectedZoneId === zone.id}
-                    selectedVehicleId={selectedVehicleId}
-                    onClick={() => onZoneClick(zone.id)}
-                    onVehicleClick={onVehicleClick}
-                    canDrag={canDrag}
-                  />
-                );
-              })}
+                {zones.map((zone) => {
+                  const pts = ZONE_POLYGONS[zone.id];
+                  if (!pts) return null;
+                  const zoneVehicles = vehicles.filter(
+                    (v) => v.zoneId === zone.id && filteredVehicleIds.has(v.id)
+                  );
+                  return (
+                    <DroppableZone
+                      key={zone.id}
+                      zone={zone}
+                      vehicles={zoneVehicles}
+                      polygonPoints={pts}
+                      selected={selectedZoneId === zone.id}
+                      selectedVehicleId={selectedVehicleId}
+                      onClick={() => onZoneClick(zone.id)}
+                      onVehicleClick={onVehicleClick}
+                      canDrag={canDrag}
+                    />
+                  );
+                })}
+              </svg>
             </TransformComponent>
           </>
         </TransformWrapper>
+        )}
       </div>
 
-      {/* Drag overlay — renders outside TransformWrapper, follows cursor */}
       <DragOverlay>
         {activeVehicle ? (
           <div
             className="rounded shadow-lg"
-            style={{ width: 26, height: 16, background: activeColor, opacity: 0.95 }}
+            style={{ width: DOT_W, height: DOT_H, background: activeColor, opacity: 0.95 }}
           />
         ) : null}
       </DragOverlay>

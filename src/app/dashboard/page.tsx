@@ -6,7 +6,6 @@ import { useVehiclesStore } from "@/store/vehiclesStore";
 import { useZonesStore } from "@/store/zonesStore";
 import { useFiltersStore } from "@/store/filtersStore";
 import { useVehicleModalStore } from "@/store/vehicleModalStore";
-import FilterBar from "@/components/map/FilterBar";
 import MapView from "@/components/map/MapView";
 import ListView from "@/components/map/ListView";
 import VehicleModal from "@/components/map/VehicleModal";
@@ -83,36 +82,37 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { icon: Car,           label: "Na placu",          value: loading ? "…" : totalOnLot,    color: "var(--color-accent)"  },
-          { icon: AlertTriangle, label: "Aktywne szkody",    value: loading ? "…" : activeDamage,  color: "var(--color-danger)"  },
-          { icon: Truck,         label: "Do myjni",          value: loading ? "…" : washCount,     color: "var(--color-warning)" },
-          { icon: CheckCircle,   label: "Gotowe do wydania", value: loading ? "…" : readyCount,    color: "var(--color-success)" },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} className="rounded-2xl p-4 flex flex-col gap-1"
-               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
-            <Icon size={18} style={{ color }} />
-            <p className="text-2xl font-black" style={{ color: "var(--color-text)" }}>{value}</p>
-            <p className="text-xs" style={{ color: "var(--color-muted)" }}>{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters + Add button */}
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <FilterBar />
+      {/* Stats + Add button row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-w-0">
+          {[
+            { icon: Car,           label: "Na placu",       value: loading ? "…" : totalOnLot,   color: "var(--color-accent)"  },
+            { icon: AlertTriangle, label: "Aktywne szkody", value: loading ? "…" : activeDamage, color: "var(--color-danger)"  },
+            { icon: Truck,         label: "Do myjni",       value: loading ? "…" : washCount,    color: "var(--color-warning)" },
+            { icon: CheckCircle,   label: "Gotowe",         value: loading ? "…" : readyCount,   color: "var(--color-success)" },
+          ].map(({ icon: Icon, label, value, color }) => (
+            <div
+              key={label}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
+            >
+              <Icon size={15} style={{ color }} className="flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-base font-black leading-none" style={{ color: "var(--color-text)" }}>{value}</p>
+                <p className="text-[10px] leading-none mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>{label}</p>
+              </div>
+            </div>
+          ))}
         </div>
+
         <button
           onClick={openAdd}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold self-start"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap"
           style={{ background: "var(--color-accent)", color: "#fff" }}
-          title="Dodaj pojazd"
         >
           <Plus size={15} />
-          <span className="hidden sm:inline">Dodaj</span>
+          <span className="hidden sm:inline">Dodaj pojazd</span>
+          <span className="sm:hidden">Dodaj</span>
         </button>
       </div>
 

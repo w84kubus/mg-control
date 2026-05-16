@@ -95,7 +95,7 @@ export interface ServiceOrder {
   updatedAt: Timestamp;
 }
 
-// ─── Wash Queue ───────────────────────────────────────────────────────────────
+// ─── Wash Queue (weekly planner) ─────────────────────────────────────────────
 
 export interface WashQueueItem {
   id: string;
@@ -112,6 +112,28 @@ export interface WashQueueItem {
   status: "waiting" | "in_progress" | "done";
   completedAt: Timestamp | null;
   createdAt: Timestamp;
+}
+
+/** Weekly wash schedule entry — one car in one slot on a specific day */
+export interface WashWeekEntry {
+  id: string;
+  /** ISO date string YYYY-MM-DD */
+  date: string;
+  /** 1-based slot position within the day (1–5 for Mon-Fri, 1–3 for Sat) */
+  slot: number;
+  vehicleModel: string;
+  vehicleColor: string;
+  vehicleVin: string;
+  /** Owner / salesperson name */
+  owner: string;
+  /** Optional note (e.g. "ceramika piątek", "wydanie czw") */
+  note: string;
+  /** Status tracking */
+  status: "scheduled" | "in_progress" | "done";
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp | null;
 }
 
 // ─── Deliveries ──────────────────────────────────────────────────────────────

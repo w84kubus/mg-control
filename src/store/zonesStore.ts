@@ -14,7 +14,8 @@ export const ZONE_DEFINITIONS: Omit<Zone, "currentCount">[] = [
   { id: "strefa_7", name: "Strefa 7", type: "strict", area: "plac", capacity: 6, svgElementId: null },
   { id: "garaz", name: "Garaż", type: "strict", area: "plac", capacity: 10, svgElementId: null },
   // SALON
-  { id: "salon", name: "Salon", type: "strict", area: "salon", capacity: 12, svgElementId: null },
+  { id: "salon", name: "Salon", type: "strict", area: "salon", capacity: 15, svgElementId: null },
+  { id: "wydawka", name: "Wydawka", type: "strict", area: "salon", capacity: 7, svgElementId: null },
   { id: "myjnia_salon", name: "Myjnia (salon)", type: "strict", area: "salon", capacity: 18, svgElementId: null },
   // SERWIS
   { id: "hala_1", name: "Hala 1", type: "strict", area: "serwis", capacity: 4, svgElementId: null },

@@ -1,6 +1,6 @@
 import type { Zone, DropValidationResult, UserRole } from "@/types";
 
-const MECHANIC_FORBIDDEN_ZONES = ["salon", "myjnia_salon", "garaz"] as const;
+const MECHANIC_FORBIDDEN_ZONES = ["salon", "wydawka", "myjnia_salon", "garaz"] as const;
 
 export function validateDrop(
   zone: Zone,

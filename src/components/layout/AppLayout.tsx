@@ -34,9 +34,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content — shifts right only when sidebar is pinned (lg+) */}
       <div
-        className="flex-1 flex flex-col min-h-dvh transition-all duration-200"
+        className="flex flex-col min-h-dvh transition-all duration-200"
         style={{
           marginLeft: isDesktop ? "var(--sidebar-w)" : 0,
+          width: isDesktop ? "calc(100% - var(--sidebar-w))" : "100%",
           paddingTop: "var(--topbar-h)",
           paddingBottom: "var(--bottombar-h)",
         }}
@@ -45,14 +46,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Topbar onMenuToggle={() => setSidebarOpen((o) => !o)} />
 
         {/* Hamburger — visible only on mobile/tablet (< lg) */}
-        <div className="fixed top-0 left-0 z-50 flex items-center h-14 px-3 lg:hidden">
+        <div className="fixed top-0 left-0 z-50 flex items-center h-14 px-2 lg:hidden">
           <button
             onClick={() => setSidebarOpen((o) => !o)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg"
+            className="w-10 h-10 flex items-center justify-center rounded-lg active:opacity-70"
             style={{ color: "var(--color-muted)" }}
             aria-label="Menu"
           >
-            <Menu size={20} />
+            <Menu size={22} />
           </button>
         </div>
 

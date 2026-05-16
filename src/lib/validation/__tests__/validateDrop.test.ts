@@ -33,7 +33,7 @@ describe("validateDrop", () => {
   });
 
   describe("mechanic forbidden zones", () => {
-    const forbiddenIds = ["salon", "myjnia_salon", "garaz"];
+    const forbiddenIds = ["salon", "wydawka", "myjnia_salon", "garaz"];
 
     forbiddenIds.forEach((id) => {
       it(`rejects mechanic from ${id}`, () => {
