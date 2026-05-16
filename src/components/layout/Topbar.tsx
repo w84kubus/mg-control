@@ -97,7 +97,7 @@ export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: 
       <GlobalSearch isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
 
       <header
-        className="fixed top-0 right-0 z-40 flex items-center gap-2 px-2 sm:px-4 h-14"
+        className="fixed top-0 right-0 z-40 flex items-center gap-2 pl-12 pr-2 sm:px-4 lg:pl-4 h-14"
         style={{
           left: sidebarWidth ?? "var(--topbar-left, 0px)",
           background: "var(--bg-surface)",
