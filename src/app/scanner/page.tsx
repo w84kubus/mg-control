@@ -123,6 +123,7 @@ export default function ScannerPage() {
             fps: 15,
             qrbox: { width: 280, height: 100 },
             aspectRatio: 16 / 9,
+            disableFlip: false,
           },
           (decoded) => {
             const raw = decoded.trim().toUpperCase();
@@ -395,25 +396,15 @@ export default function ScannerPage() {
           ) : (
             <>
               {/* Camera feed — html5-qrcode renders video here */}
+              <style>{`
+                #vin-camera-feed video { width: 100% !important; border-radius: 0 !important; }
+                #vin-camera-feed #qr-shaded-region { border: none !important; }
+                #vin-camera-feed #qr-shaded-region > div { display: none !important; }
+              `}</style>
               <div
                 id="vin-camera-feed"
                 style={{ width: "100%", minHeight: 260 }}
               />
-
-              {/* Scan overlay */}
-              {cameraReady && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                  <div
-                    style={{
-                      width: 280,
-                      height: 100,
-                      border: "2px solid var(--color-accent)",
-                      borderRadius: 12,
-                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)",
-                    }}
-                  />
-                </div>
-              )}
 
               {/* Torch button */}
               {cameraReady && (
