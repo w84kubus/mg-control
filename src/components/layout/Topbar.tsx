@@ -112,9 +112,10 @@ export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: 
             className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm text-left"
             style={{ background: "var(--bg-surface2)", border: "1px solid var(--bg-border2)" }}
           >
-            <Search size={14} style={{ color: "var(--color-muted)" }} />
-            <span className="flex-1 text-sm" style={{ color: "var(--color-muted)" }}>
-              Szukaj po VIN, modelu, nr rej., kolorze…
+            <Search size={14} className="shrink-0" style={{ color: "var(--color-muted)" }} />
+            <span className="flex-1 text-xs sm:text-sm truncate" style={{ color: "var(--color-muted)" }}>
+              <span className="sm:hidden">Szukaj…</span>
+              <span className="hidden sm:inline">Szukaj po VIN, modelu, nr rej., kolorze…</span>
             </span>
             <kbd
               className="text-[10px] px-1.5 py-0.5 rounded hidden sm:block"
