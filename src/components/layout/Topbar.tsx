@@ -158,7 +158,7 @@ export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: 
               {showFilters && (
                 <div
                   ref={filterPanelRef}
-                  className="absolute top-full mt-2 right-0 sm:left-0 sm:right-auto z-50 rounded-2xl p-4 flex flex-col gap-3"
+                  className="fixed sm:absolute left-1/2 sm:left-0 sm:right-auto top-16 sm:top-full sm:mt-2 -translate-x-1/2 sm:translate-x-0 z-50 rounded-2xl p-4 flex flex-col gap-3"
                   style={{
                     width: "min(340px, calc(100vw - 2rem))",
                     background: "var(--bg-surface)",
