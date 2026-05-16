@@ -152,11 +152,12 @@ function fitGrid(b: { w: number; h: number }, count: number) {
 }
 
 function DraggableVehicle({
-  vehicle, fromZoneId, canDrag, onClick, selected, svgX, svgY, dotW, dotH,
+  vehicle, fromZoneId, canDrag, onClick, selected, svgX, svgY, dotW, dotH, scaleRef,
 }: {
   vehicle: Vehicle; fromZoneId: string | null; canDrag: boolean;
   onClick: (e: React.MouseEvent) => void; selected: boolean;
   svgX: number; svgY: number; dotW: number; dotH: number;
+  scaleRef: React.RefObject<number>;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: vehicle.id,
@@ -166,6 +167,14 @@ function DraggableVehicle({
   const color = STATUS_COLORS[vehicle.status] ?? "#64748b";
   const fontSize = Math.max(5, Math.round(dotW * 0.18));
 
+  // Compensate for zoom scale: @dnd-kit reports delta in screen pixels,
+  // but the SVG content is scaled by TransformWrapper. Dividing by scale
+  // keeps the dragged dot under the cursor at any zoom level.
+  const scale = scaleRef.current ?? 1;
+  const adjustedTransform = transform
+    ? { ...transform, x: transform.x / scale, y: transform.y / scale }
+    : null;
+
   return (
     <g
       ref={setNodeRef as unknown as (el: SVGGElement | null) => void}
@@ -173,7 +182,7 @@ function DraggableVehicle({
       {...listeners}
       onClick={onClick}
       style={{
-        transform: CSS.Translate.toString(transform),
+        transform: CSS.Translate.toString(adjustedTransform),
         cursor: canDrag ? "grab" : "default",
         opacity: isDragging ? 0.25 : 1,
         touchAction: "none",
@@ -202,11 +211,12 @@ function DraggableVehicle({
 
 function DroppableZone({
   zone, vehicles, polygonPoints, selected, selectedVehicleId,
-  onClick, onVehicleClick, canDrag,
+  onClick, onVehicleClick, canDrag, scaleRef,
 }: {
   zone: Zone; vehicles: Vehicle[]; polygonPoints: string;
   selected: boolean; selectedVehicleId: string | null;
   onClick: () => void; onVehicleClick: (v: Vehicle) => void; canDrag: boolean;
+  scaleRef: React.RefObject<number>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: zone.id, disabled: zone.type === "blocked" });
   const b = polyBounds(polygonPoints);
@@ -279,6 +289,7 @@ function DroppableZone({
           svgX={vStartX + (i % cols) * stepX}
           svgY={vStartY + Math.floor(i / cols) * stepY}
           onClick={(e) => { e.stopPropagation(); onVehicleClick(v); }}
+          scaleRef={scaleRef}
         />
       ))}
     </g>
@@ -320,6 +331,7 @@ export default function MapView({
   const { user } = useAuthStore();
   const { zones: allZones } = useZonesStore();
   const [isDragging, setIsDragging] = useState(false);
+  const scaleRef = useRef(1);
 
   const canDrag = user ? canUserMoveVehicle(user.role) : false;
 
@@ -418,6 +430,8 @@ export default function MapView({
           pinch={{ step: 3 }}
           panning={{ disabled: isDragging, velocityDisabled: true }}
           doubleClick={{ disabled: true }}
+          onTransform={(_ref, state) => { scaleRef.current = state.scale; }}
+          onInit={(ref) => { scaleRef.current = ref.state.scale; }}
         >
           <>
             <Controls />
@@ -450,6 +464,7 @@ export default function MapView({
                       onClick={() => onZoneClick(zone.id)}
                       onVehicleClick={onVehicleClick}
                       canDrag={canDrag}
+                      scaleRef={scaleRef}
                     />
                   );
                 })}
