@@ -16,6 +16,19 @@ type ScanResult =
   | { type: "found"; vehicle: Vehicle }
   | { type: "not_found"; query: string };
 
+// BarcodeDetector type declarations (native browser API)
+interface BarcodeDetectorResult {
+  rawValue: string;
+  format: string;
+  boundingBox: DOMRectReadOnly;
+}
+
+declare class BarcodeDetector {
+  constructor(options?: { formats: string[] });
+  detect(source: ImageBitmapSource): Promise<BarcodeDetectorResult[]>;
+  static getSupportedFormats(): Promise<string[]>;
+}
+
 export default function ScannerPage() {
   const router = useRouter();
   const { vehicles, subscribe } = useVehiclesStore();
@@ -27,10 +40,12 @@ export default function ScannerPage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [torch, setTorch] = useState(false);
+  const [scanning, setScanning] = useState(true);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const html5Qrcode = useRef<any>(null);
-  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const detectorRef = useRef<BarcodeDetector | null>(null);
 
   useEffect(() => {
     const unsub = subscribe();
@@ -85,107 +100,143 @@ export default function ScannerPage() {
   function reset() {
     setResult(null);
     setQuery("");
+    setScanning(true);
   }
 
-  // ── Camera barcode scanner (raw Html5Qrcode API) ───────────────────────
+  // ── Stop camera helper ────────────────────────────────────────────────
+  const stopCamera = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraReady(false);
+    setTorch(false);
+  }, []);
+
+  // ── Native BarcodeDetector camera scanner ─────────────────────────────
   useEffect(() => {
     if (mode !== "camera") {
-      // Stop camera when leaving camera mode
-      if (html5Qrcode.current?.isScanning) {
-        html5Qrcode.current.stop().catch(() => {});
-      }
-      setCameraReady(false);
+      stopCamera();
       return;
     }
 
-    let instance: InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null = null;
+    let cancelled = false;
 
     (async () => {
-      try {
-        const { Html5Qrcode } = await import("html5-qrcode");
+      // Check if BarcodeDetector is available
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (typeof (globalThis as any).BarcodeDetector === "undefined") {
+        setCameraError(
+          "Twoja przeglądarka nie wspiera skanowania kodów. Użyj Safari 16.4+ lub Chrome."
+        );
+        return;
+      }
 
-        instance = new Html5Qrcode("vin-camera-feed", {
-          verbose: false,
+      try {
+        // Create detector for code_128 barcodes
+        const detector = new BarcodeDetector({ formats: ["code_128"] });
+        detectorRef.current = detector;
+
+        // Get camera stream with high resolution for better barcode reading
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
         });
 
-        html5Qrcode.current = instance;
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
 
-        await instance.start(
-          { facingMode: "environment" },
-          {
-            fps: 20,
-            qrbox: (vw: number, vh: number) => {
-              const w = Math.min(Math.floor(vw * 0.85), 350);
-              const h = Math.min(Math.floor(vh * 0.35), 160);
-              return { width: w, height: h };
-            },
-            aspectRatio: 16 / 9,
-            disableFlip: false,
-          },
-          (decoded) => {
-            const raw = decoded.trim().toUpperCase();
-            const vinMatch = raw.match(/[A-HJ-NPR-Z0-9]{17}/);
-            const vin = vinMatch ? vinMatch[0] : raw;
+        streamRef.current = stream;
 
-            // Stop scanning first
-            instance?.stop().catch(() => {});
-            setCameraReady(false);
+        const video = videoRef.current;
+        if (!video) return;
 
-            setQuery(vin);
-            // Dispatch event so the listener with latest vehicles state handles it
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent("vin-scanned", { detail: vin }));
-            }, 50);
-          },
-          () => {
-            // Ignore "no code found" — normal during scanning
-          }
-        );
+        video.srcObject = stream;
+        await video.play();
 
         setCameraReady(true);
 
-        // Grab the video track for torch control
-        setTimeout(() => {
-          try {
-            const videoEl = document.querySelector("#vin-camera-feed video") as HTMLVideoElement | null;
-            const stream = videoEl?.srcObject as MediaStream | null;
-            const track = stream?.getVideoTracks()?.[0];
-            if (track) videoTrackRef.current = track;
-          } catch { /* ignore */ }
-        }, 500);
+        // Scan loop — run detect() on each animation frame
+        let lastScanTime = 0;
+        const SCAN_INTERVAL = 150; // ms between scans (avoid overloading CPU)
+
+        function scanLoop(timestamp: number) {
+          if (cancelled) return;
+
+          if (timestamp - lastScanTime >= SCAN_INTERVAL && video!.readyState >= 2) {
+            lastScanTime = timestamp;
+
+            detector
+              .detect(video!)
+              .then((barcodes) => {
+                if (cancelled || barcodes.length === 0) return;
+
+                const raw = barcodes[0].rawValue.trim().toUpperCase();
+                const vinMatch = raw.match(/[A-HJ-NPR-Z0-9]{17}/);
+                const vin = vinMatch ? vinMatch[0] : raw;
+
+                // Found a barcode — process it
+                setScanning(false);
+                setQuery(vin);
+
+                const found = vehicles.find(
+                  (v) =>
+                    v.vin.toUpperCase() === vin ||
+                    v.vinShort.toUpperCase() === vin ||
+                    v.vin.toUpperCase().endsWith(vin) ||
+                    v.vin.toUpperCase().includes(vin)
+                );
+
+                setResult(
+                  found
+                    ? { type: "found", vehicle: found }
+                    : { type: "not_found", query: vin }
+                );
+
+                // Stop the scan loop (camera stays on for visual continuity)
+                cancelled = true;
+              })
+              .catch(() => {
+                // detect() can fail on some frames — just keep going
+              });
+          }
+
+          animFrameRef.current = requestAnimationFrame(scanLoop);
+        }
+
+        animFrameRef.current = requestAnimationFrame(scanLoop);
       } catch (e) {
+        if (cancelled) return;
         const msg = String(e);
         if (msg.includes("Permission") || msg.includes("NotAllowed")) {
           setCameraError("Brak dostępu do kamery. Zezwól w ustawieniach przeglądarki.");
         } else {
-          setCameraError("Nie udało się uruchomić kamery.");
+          setCameraError("Nie udało się uruchomić kamery: " + msg);
         }
       }
     })();
 
     return () => {
-      if (instance?.isScanning) {
-        instance.stop().catch(() => {});
-      }
+      cancelled = true;
+      stopCamera();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, scanning]);
 
-  // Listen for scanned VIN events from the camera callback
-  useEffect(() => {
-    function onScanned(e: Event) {
-      const vin = (e as CustomEvent).detail as string;
-      const found = findVehicle(vin);
-      setResult(found ? { type: "found", vehicle: found } : { type: "not_found", query: vin });
-    }
-    window.addEventListener("vin-scanned", onScanned);
-    return () => window.removeEventListener("vin-scanned", onScanned);
-  }, [findVehicle]);
-
-  // Torch toggle via native MediaStream API
+  // ── Torch toggle via native MediaStream API ───────────────────────────
   async function toggleTorch() {
     try {
-      const track = videoTrackRef.current;
+      const track = streamRef.current?.getVideoTracks()?.[0];
       if (!track) return;
       const newVal = !torch;
       await track.applyConstraints({
@@ -194,7 +245,7 @@ export default function ScannerPage() {
       });
       setTorch(newVal);
     } catch {
-      // Torch not supported on this device — ignore silently
+      // Torch not supported on this device
     }
   }
 
@@ -399,15 +450,17 @@ export default function ScannerPage() {
             </div>
           ) : (
             <>
-              {/* Camera feed — html5-qrcode renders video here */}
-              <style>{`
-                #vin-camera-feed video { width: 100% !important; border-radius: 0 !important; }
-                #vin-camera-feed #qr-shaded-region { border: none !important; }
-                #vin-camera-feed #qr-shaded-region > div { display: none !important; }
-              `}</style>
-              <div
-                id="vin-camera-feed"
-                style={{ width: "100%", minHeight: 300 }}
+              {/* Native video element */}
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                style={{
+                  width: "100%",
+                  minHeight: 300,
+                  objectFit: "cover",
+                  display: "block",
+                }}
               />
 
               {/* Blue scan frame */}
@@ -417,10 +470,10 @@ export default function ScannerPage() {
                     style={{
                       width: "85%",
                       maxWidth: 350,
-                      height: "35%",
-                      maxHeight: 160,
+                      height: 100,
                       border: "2.5px solid var(--color-accent)",
                       borderRadius: 12,
+                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)",
                     }}
                   />
                 </div>
@@ -442,7 +495,10 @@ export default function ScannerPage() {
 
               {/* Loading state */}
               {!cameraReady && !cameraError && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                  className="flex items-center justify-center"
+                  style={{ minHeight: 300 }}
+                >
                   <div className="flex flex-col items-center gap-2">
                     <div
                       className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
@@ -460,7 +516,7 @@ export default function ScannerPage() {
                 className="text-center text-xs py-2"
                 style={{ background: "rgba(0,0,0,0.7)", color: "var(--color-muted)" }}
               >
-                Skieruj na kod kreskowy lub QR z VIN
+                Skieruj na kod kreskowy z VIN
               </p>
             </>
           )}
