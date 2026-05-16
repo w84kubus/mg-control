@@ -135,7 +135,7 @@ function SlotCard({
           <p className="text-xs font-semibold truncate" style={{ color: "var(--color-text)" }}>
             {entry.vehicleModel}
           </p>
-          <p className="text-[10px] font-mono truncate" style={{ color: "var(--color-muted)" }}>
+          <p className="text-xs font-mono truncate" style={{ color: "var(--color-muted)" }}>
             {entry.vehicleVin}
           </p>
         </div>
