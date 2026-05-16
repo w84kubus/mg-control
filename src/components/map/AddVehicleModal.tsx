@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, AlertCircle, CheckCircle } from "lucide-react";
+import { X, Plus, AlertCircle, CheckCircle, ScanLine } from "lucide-react";
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useZonesStore } from "@/store/zonesStore";
 import { validateVin } from "@/lib/business/vinValidator";
 import { toast } from "react-toastify";
+import dynamic from "next/dynamic";
 import type { VehicleType, VehicleStatus } from "@/types";
+
+const BarcodeScannerInline = dynamic(
+  () => import("@/components/scanner/BarcodeScannerInline"),
+  { ssr: false }
+);
 
 const MG_MODELS = [
   "MG3", "MG4", "MG5", "MG7", "HS", "HS PHEV", "ZS", "ZS EV",
@@ -36,6 +42,7 @@ export default function AddVehicleModal({ onClose }: Props) {
   const [licensePlate, setLicensePlate] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const vinResult = vin.length > 0 ? validateVin(vin) : null;
   const availableZones = zones.filter((z) => z.type !== "blocked");
@@ -122,23 +129,38 @@ export default function AddVehicleModal({ onClose }: Props) {
             <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>
               Numer VIN *
             </label>
-            <input
-              className={inputCls}
-              style={{
-                ...inputStyle,
-                borderColor: vinResult
-                  ? vinResult.valid ? "#22c55e" : "#ef4444"
-                  : "var(--bg-border2)",
-                fontFamily: "monospace",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-              value={vin}
-              onChange={(e) => setVin(e.target.value)}
-              placeholder="LSJXXXXXXXXXXXXX"
-              maxLength={17}
-              required
-            />
+            <div className="flex gap-2">
+              <input
+                className={inputCls + " flex-1"}
+                style={{
+                  ...inputStyle,
+                  borderColor: vinResult
+                    ? vinResult.valid ? "#22c55e" : "#ef4444"
+                    : "var(--bg-border2)",
+                  fontFamily: "monospace",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                }}
+                value={vin}
+                onChange={(e) => setVin(e.target.value)}
+                placeholder="LSJXXXXXXXXXXXXX"
+                maxLength={17}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowScanner((v) => !v)}
+                className="px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-semibold shrink-0"
+                style={{
+                  background: showScanner ? "var(--color-accent)" : "var(--bg-primary)",
+                  color: showScanner ? "#fff" : "var(--color-accent)",
+                  border: `1px solid ${showScanner ? "var(--color-accent)" : "var(--bg-border2)"}`,
+                }}
+              >
+                <ScanLine size={14} />
+                <span className="hidden sm:inline">Skanuj</span>
+              </button>
+            </div>
             {vinResult && (
               <p
                 className="text-xs flex items-center gap-1"
@@ -147,6 +169,17 @@ export default function AddVehicleModal({ onClose }: Props) {
                 {vinResult.valid ? <CheckCircle size={11} /> : <AlertCircle size={11} />}
                 {vinResult.valid ? `OK · ostatnie 7: ${vin.toUpperCase().slice(-7)}` : vinResult.error}
               </p>
+            )}
+
+            {/* Inline barcode scanner */}
+            {showScanner && (
+              <BarcodeScannerInline
+                onScan={(scanned) => {
+                  setVin(scanned);
+                  setShowScanner(false);
+                }}
+                onClose={() => setShowScanner(false)}
+              />
             )}
           </div>
 
