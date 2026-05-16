@@ -30,6 +30,7 @@ export default function ScannerPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const html5Qrcode = useRef<any>(null);
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
 
   useEffect(() => {
     const unsub = subscribe();
@@ -150,6 +151,16 @@ export default function ScannerPage() {
         );
 
         setCameraReady(true);
+
+        // Grab the video track for torch control
+        setTimeout(() => {
+          try {
+            const videoEl = document.querySelector("#vin-camera-feed video") as HTMLVideoElement | null;
+            const stream = videoEl?.srcObject as MediaStream | null;
+            const track = stream?.getVideoTracks()?.[0];
+            if (track) videoTrackRef.current = track;
+          } catch { /* ignore */ }
+        }, 500);
       } catch (e) {
         const msg = String(e);
         if (msg.includes("Permission") || msg.includes("NotAllowed")) {
@@ -179,18 +190,19 @@ export default function ScannerPage() {
     return () => window.removeEventListener("vin-scanned", onScanned);
   }, [findVehicle]);
 
-  // Torch toggle
+  // Torch toggle via native MediaStream API
   async function toggleTorch() {
     try {
-      const track = html5Qrcode.current?.getRunningTrackSettings?.();
+      const track = videoTrackRef.current;
       if (!track) return;
-      const capabilities = html5Qrcode.current?.getRunningTrackCameraCapabilities?.();
-      if (capabilities?.torchFeature?.isSupported?.()) {
-        await capabilities.torchFeature.apply(!torch);
-        setTorch(!torch);
-      }
+      const newVal = !torch;
+      await track.applyConstraints({
+        // @ts-expect-error — torch is a valid advanced constraint
+        advanced: [{ torch: newVal }],
+      });
+      setTorch(newVal);
     } catch {
-      // Torch not supported — ignore
+      // Torch not supported on this device — ignore silently
     }
   }
 
@@ -405,6 +417,20 @@ export default function ScannerPage() {
                 id="vin-camera-feed"
                 style={{ width: "100%", minHeight: 260 }}
               />
+
+              {/* Blue scan frame */}
+              {cameraReady && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div
+                    style={{
+                      width: 280,
+                      height: 100,
+                      border: "2.5px solid var(--color-accent)",
+                      borderRadius: 12,
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Torch button */}
               {cameraReady && (
