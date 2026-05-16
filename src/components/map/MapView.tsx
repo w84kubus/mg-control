@@ -143,10 +143,9 @@ const DOT_GAP_Y = 5;
 const ZONE_PAD = 4;
 const BADGE_H = 20; // vertical space reserved for the occupancy badge
 
-/** Compute dot dimensions and grid layout that fits `count` vehicles in a zone.
- *  `minW` overrides the bounding-box width for skewed polygons (use narrowest row). */
-function fitGrid(b: { w: number; h: number }, count: number, minW?: number) {
-  const availW = (minW ?? b.w) - ZONE_PAD * 2;
+/** Compute dot dimensions and grid layout that fits `count` vehicles in a zone. */
+function fitGrid(b: { w: number; h: number }, count: number) {
+  const availW = b.w - ZONE_PAD * 2;
   const availH = b.h - ZONE_PAD - BADGE_H;
 
   if (count === 0) return { dotW: DOT_W_MAX, dotH: DOT_H_MAX, cols: 1, stepX: 0, stepY: 0 };
@@ -269,40 +268,38 @@ function DroppableZone({
 
   // Pre-compute polygon vertices for skew-aware placement
   const verts = polyVerts(polygonPoints);
-
-  // For skewed polygons (like tunel), find the minimum usable width
-  // by sampling the polygon at each potential row Y.
   const vStartY = b.y + BADGE_H;
-  let minPolyW = b.w;
-  for (let sampleY = vStartY; sampleY <= b.y + b.h; sampleY += 5) {
-    const r = xRangeAtY(verts, sampleY);
-    if (r.left !== Infinity) minPolyW = Math.min(minPolyW, r.right - r.left);
-  }
 
-  // Vehicle grid — auto-scales dots to fit inside the zone bounds
-  const { dotW, dotH, cols, stepX, stepY } = fitGrid(b, vehicles.length, minPolyW);
+  // Vehicle grid — use bounding box for dot sizing, then place row-by-row
+  // adapting to the actual polygon width at each row's Y.
+  const { dotW, dotH, stepX, stepY } = fitGrid(b, vehicles.length);
 
-  // Build per-vehicle positions: for each row, find the actual polygon left
-  // edge at that Y and center the row's vehicles within the real width.
+  // Build positions row-by-row: each row gets as many columns as fit
+  // at that Y level of the polygon (adaptive columns per row).
   const vehiclePositions: { x: number; y: number }[] = [];
-  for (let i = 0; i < vehicles.length; i++) {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
+  let vi = 0; // vehicle index
+  let row = 0;
+  while (vi < vehicles.length) {
     const y = vStartY + row * stepY;
     const yCentre = y + dotH / 2;
 
-    // How many vehicles in this row?
-    const rowStart = row * cols;
-    const rowCount = Math.min(cols, vehicles.length - rowStart);
-
     // Get actual left/right at this Y from polygon edges
     const range = xRangeAtY(verts, yCentre);
-    const availW = range.right - range.left - ZONE_PAD * 2;
-    const totalRowW = rowCount * dotW + (rowCount - 1) * (stepX - dotW);
-    // Center the row within the available width
-    const rowStartX = range.left + ZONE_PAD + Math.max(0, (availW - totalRowW) / 2);
+    const rowAvailW = (range.left !== Infinity)
+      ? range.right - range.left - ZONE_PAD * 2
+      : b.w - ZONE_PAD * 2;
+    const rowCols = Math.max(1, Math.floor(rowAvailW / stepX));
+    const rowCount = Math.min(rowCols, vehicles.length - vi);
 
-    vehiclePositions.push({ x: rowStartX + col * stepX, y });
+    const totalRowW = rowCount * dotW + (rowCount - 1) * (stepX - dotW);
+    const rowLeft = (range.left !== Infinity ? range.left : b.x) + ZONE_PAD;
+    const rowStartX = rowLeft + Math.max(0, (rowAvailW - totalRowW) / 2);
+
+    for (let col = 0; col < rowCount; col++) {
+      vehiclePositions.push({ x: rowStartX + col * stepX, y });
+      vi++;
+    }
+    row++;
   }
 
   // Badge position: top-right of polygon at badge Y
