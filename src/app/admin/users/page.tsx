@@ -45,8 +45,8 @@ export default function UsersPage() {
         getDocs(collection(db, "users")),
         getDocs(collection(db, "allowedEmails")),
       ]);
-      setUsers(usersSnap.docs.map((d) => d.data() as AppUser));
-      setWhitelist(wlSnap.docs.map((d) => d.data() as AllowedEmail));
+      setUsers(usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() } as AppUser)));
+      setWhitelist(wlSnap.docs.map((d) => ({ email: d.id, ...d.data() } as AllowedEmail)));
     } catch {
       toast.error("Nie udało się załadować danych.");
     } finally {
