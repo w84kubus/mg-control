@@ -68,12 +68,20 @@ service cloud.firestore {
       allow delete: if isLogistics();
     }
 
-    // ─── washQueue ─────────────────────────────────────────────────────────
+    // ─── washQueue (legacy) ──────────────────────────────────────────────
     match /washQueue/{itemId} {
       allow read:   if isStaff();
       allow create: if isLogistics() || isSales();
       allow update: if isLogistics() || isDetailer() || isMechanic();
       allow delete: if isLogistics();
+    }
+
+    // ─── washWeek (weekly wash planner) ───────────────────────────────────
+    match /washWeek/{itemId} {
+      allow read:   if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isLogistics() || isSales();
     }
 
     // ─── documents ─────────────────────────────────────────────────────────
