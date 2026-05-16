@@ -16,18 +16,8 @@ type ScanResult =
   | { type: "found"; vehicle: Vehicle }
   | { type: "not_found"; query: string };
 
-// BarcodeDetector type declarations (native browser API)
-interface BarcodeDetectorResult {
-  rawValue: string;
-  format: string;
-  boundingBox: DOMRectReadOnly;
-}
-
-declare class BarcodeDetector {
-  constructor(options?: { formats: string[] });
-  detect(source: ImageBitmapSource): Promise<BarcodeDetectorResult[]>;
-  static getSupportedFormats(): Promise<string[]>;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyBarcodeDetector = any;
 
 export default function ScannerPage() {
   const router = useRouter();
@@ -45,7 +35,7 @@ export default function ScannerPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number>(0);
-  const detectorRef = useRef<BarcodeDetector | null>(null);
+  const detectorRef = useRef<AnyBarcodeDetector>(null);
 
   useEffect(() => {
     const unsub = subscribe();
@@ -127,17 +117,9 @@ export default function ScannerPage() {
     let cancelled = false;
 
     (async () => {
-      // Check if BarcodeDetector is available
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (typeof (globalThis as any).BarcodeDetector === "undefined") {
-        setCameraError(
-          "Twoja przeglądarka nie wspiera skanowania kodów. Użyj Safari 16.4+ lub Chrome."
-        );
-        return;
-      }
-
       try {
-        // Create detector for code_128 barcodes
+        // Import polyfill — works on all browsers (uses ZXing WASM)
+        const { BarcodeDetector } = await import("barcode-detector");
         const detector = new BarcodeDetector({ formats: ["code_128"] });
         detectorRef.current = detector;
 
