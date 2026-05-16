@@ -82,6 +82,36 @@ function polyBounds(pts: string) {
   return { x, y, w: mx - x, h: my - y, cx: (x + mx) / 2, cy: (y + my) / 2 };
 }
 
+/** Parse polygon string → vertex array */
+function polyVerts(pts: string): [number, number][] {
+  const n = pts.split(/[ ,]+/).map(Number);
+  const v: [number, number][] = [];
+  for (let i = 0; i < n.length; i += 2) v.push([n[i], n[i + 1]]);
+  return v;
+}
+
+/** Get the actual left and right X at a given Y by walking polygon edges */
+function xRangeAtY(verts: [number, number][], y: number) {
+  let left = Infinity, right = -Infinity;
+  for (let i = 0; i < verts.length; i++) {
+    const [x1, y1] = verts[i];
+    const [x2, y2] = verts[(i + 1) % verts.length];
+    // Check if this edge crosses (or touches) the given Y
+    if ((y1 <= y && y2 >= y) || (y2 <= y && y1 >= y)) {
+      if (y1 === y2) {
+        left = Math.min(left, x1, x2);
+        right = Math.max(right, x1, x2);
+      } else {
+        const t = (y - y1) / (y2 - y1);
+        const x = x1 + t * (x2 - x1);
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+      }
+    }
+  }
+  return { left, right };
+}
+
 // ─── Zoom controls ────────────────────────────────────────────────────────────
 
 function Controls() {
@@ -113,9 +143,10 @@ const DOT_GAP_Y = 5;
 const ZONE_PAD = 4;
 const BADGE_H = 20; // vertical space reserved for the occupancy badge
 
-/** Compute dot dimensions and grid layout that fits `count` vehicles in a zone. */
-function fitGrid(b: { w: number; h: number }, count: number) {
-  const availW = b.w - ZONE_PAD * 2;
+/** Compute dot dimensions and grid layout that fits `count` vehicles in a zone.
+ *  `minW` overrides the bounding-box width for skewed polygons (use narrowest row). */
+function fitGrid(b: { w: number; h: number }, count: number, minW?: number) {
+  const availW = (minW ?? b.w) - ZONE_PAD * 2;
   const availH = b.h - ZONE_PAD - BADGE_H;
 
   if (count === 0) return { dotW: DOT_W_MAX, dotH: DOT_H_MAX, cols: 1, stepX: 0, stepY: 0 };
@@ -236,10 +267,48 @@ function DroppableZone({
     ? "rgba(59,130,246,0.9)"
     : "transparent";
 
-  // Vehicle grid — auto-scales dots to fit inside the zone bounds
-  const { dotW, dotH, cols, stepX, stepY } = fitGrid(b, vehicles.length);
-  const vStartX = b.x + ZONE_PAD;
+  // Pre-compute polygon vertices for skew-aware placement
+  const verts = polyVerts(polygonPoints);
+
+  // For skewed polygons (like tunel), find the minimum usable width
+  // by sampling the polygon at each potential row Y.
   const vStartY = b.y + BADGE_H;
+  let minPolyW = b.w;
+  for (let sampleY = vStartY; sampleY <= b.y + b.h; sampleY += 5) {
+    const r = xRangeAtY(verts, sampleY);
+    if (r.left !== Infinity) minPolyW = Math.min(minPolyW, r.right - r.left);
+  }
+
+  // Vehicle grid — auto-scales dots to fit inside the zone bounds
+  const { dotW, dotH, cols, stepX, stepY } = fitGrid(b, vehicles.length, minPolyW);
+
+  // Build per-vehicle positions: for each row, find the actual polygon left
+  // edge at that Y and center the row's vehicles within the real width.
+  const vehiclePositions: { x: number; y: number }[] = [];
+  for (let i = 0; i < vehicles.length; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const y = vStartY + row * stepY;
+    const yCentre = y + dotH / 2;
+
+    // How many vehicles in this row?
+    const rowStart = row * cols;
+    const rowCount = Math.min(cols, vehicles.length - rowStart);
+
+    // Get actual left/right at this Y from polygon edges
+    const range = xRangeAtY(verts, yCentre);
+    const availW = range.right - range.left - ZONE_PAD * 2;
+    const totalRowW = rowCount * dotW + (rowCount - 1) * (stepX - dotW);
+    // Center the row within the available width
+    const rowStartX = range.left + ZONE_PAD + Math.max(0, (availW - totalRowW) / 2);
+
+    vehiclePositions.push({ x: rowStartX + col * stepX, y });
+  }
+
+  // Badge position: top-right of polygon at badge Y
+  const badgeY = b.y + 3;
+  const badgeRange = xRangeAtY(verts, badgeY + 7.5);
+  const badgeX = (badgeRange.right !== -Infinity ? badgeRange.right : b.x + b.w) - 34;
 
   return (
     <g
@@ -260,12 +329,12 @@ function DroppableZone({
       {(vehicles.length > 0 || zone.capacity !== null) && (
         <>
           <rect
-            x={b.x + b.w - 34} y={b.y + 3} width={31} height={15} rx={3}
+            x={badgeX} y={b.y + 3} width={31} height={15} rx={3}
             fill="rgba(15,23,42,0.82)"
             style={{ pointerEvents: "none" }}
           />
           <text
-            x={b.x + b.w - 18.5} y={b.y + 11}
+            x={badgeX + 15.5} y={b.y + 11}
             textAnchor="middle" dominantBaseline="middle"
             fontSize={9} fontWeight="bold" fontFamily="monospace"
             fill={isFull ? "#ef4444" : "#22c55e"}
@@ -276,7 +345,7 @@ function DroppableZone({
         </>
       )}
 
-      {/* Vehicle dots — clipped to zone bounds */}
+      {/* Vehicle dots — positioned along the polygon shape */}
       {vehicles.map((v, i) => (
         <DraggableVehicle
           key={v.id}
@@ -286,8 +355,8 @@ function DroppableZone({
           selected={v.id === selectedVehicleId}
           dotW={dotW}
           dotH={dotH}
-          svgX={vStartX + (i % cols) * stepX}
-          svgY={vStartY + Math.floor(i / cols) * stepY}
+          svgX={vehiclePositions[i]?.x ?? b.x + ZONE_PAD}
+          svgY={vehiclePositions[i]?.y ?? vStartY}
           onClick={(e) => { e.stopPropagation(); onVehicleClick(v); }}
           scaleRef={scaleRef}
         />
