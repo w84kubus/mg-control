@@ -102,17 +102,9 @@ export default function ScannerPage() {
 
     (async () => {
       try {
-        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        const { Html5Qrcode } = await import("html5-qrcode");
 
         instance = new Html5Qrcode("vin-camera-feed", {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.QR_CODE,
-            Html5QrcodeSupportedFormats.DATA_MATRIX,
-            Html5QrcodeSupportedFormats.ITF,
-            Html5QrcodeSupportedFormats.PDF_417,
-          ],
           verbose: false,
         });
 
@@ -121,8 +113,12 @@ export default function ScannerPage() {
         await instance.start(
           { facingMode: "environment" },
           {
-            fps: 15,
-            qrbox: { width: 280, height: 100 },
+            fps: 20,
+            qrbox: (vw: number, vh: number) => {
+              const w = Math.min(Math.floor(vw * 0.85), 350);
+              const h = Math.min(Math.floor(vh * 0.35), 160);
+              return { width: w, height: h };
+            },
             aspectRatio: 16 / 9,
             disableFlip: false,
           },
@@ -131,19 +127,15 @@ export default function ScannerPage() {
             const vinMatch = raw.match(/[A-HJ-NPR-Z0-9]{17}/);
             const vin = vinMatch ? vinMatch[0] : raw;
 
-            setQuery(vin);
-            // Use a callback to access latest vehicles
-            setResult((prev) => {
-              // We need to search in the component scope
-              return null; // Will be set by the effect below
-            });
-
-            // Stop scanning
+            // Stop scanning first
             instance?.stop().catch(() => {});
             setCameraReady(false);
 
-            // Trigger search via DOM event
-            window.dispatchEvent(new CustomEvent("vin-scanned", { detail: vin }));
+            setQuery(vin);
+            // Dispatch event so the listener with latest vehicles state handles it
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("vin-scanned", { detail: vin }));
+            }, 50);
           },
           () => {
             // Ignore "no code found" — normal during scanning
@@ -415,7 +407,7 @@ export default function ScannerPage() {
               `}</style>
               <div
                 id="vin-camera-feed"
-                style={{ width: "100%", minHeight: 260 }}
+                style={{ width: "100%", minHeight: 300 }}
               />
 
               {/* Blue scan frame */}
@@ -423,8 +415,10 @@ export default function ScannerPage() {
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                   <div
                     style={{
-                      width: 280,
-                      height: 100,
+                      width: "85%",
+                      maxWidth: 350,
+                      height: "35%",
+                      maxHeight: 160,
                       border: "2.5px solid var(--color-accent)",
                       borderRadius: 12,
                     }}
