@@ -99,7 +99,7 @@ export default function DashboardPage() {
               <Icon size={15} style={{ color }} className="flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-base font-black leading-none" style={{ color: "var(--color-text)" }}>{value}</p>
-                <p className="text-[10px] leading-none mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>{label}</p>
+                <p className="text-xs leading-none mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>{label}</p>
               </div>
             </div>
           ))}
