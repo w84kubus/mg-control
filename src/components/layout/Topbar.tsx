@@ -33,7 +33,7 @@ const AREAS: { val: AreaFilter; label: string }[] = [
   { val: "blacharnia", label: "Blacharnia" },
 ];
 
-export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
+export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: () => void; sidebarWidth?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, theme, setTheme } = useAuthStore();
@@ -99,9 +99,10 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) 
       <header
         className="fixed top-0 right-0 z-40 flex items-center gap-2 px-2 sm:px-4 h-14"
         style={{
-          left: "var(--topbar-left, 0px)",
+          left: sidebarWidth ?? "var(--topbar-left, 0px)",
           background: "var(--bg-surface)",
           borderBottom: "1px solid var(--bg-border)",
+          transition: "left 200ms ease",
         }}
       >
         {/* Search trigger */}

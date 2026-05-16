@@ -6,12 +6,32 @@ import Sidebar from "./Sidebar";
 import BottomBar from "./BottomBar";
 import Topbar from "./Topbar";
 
+const LS_KEY = "mg-sidebar-collapsed";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // On desktop (≥1024px) the sidebar is always open.
+  // On desktop (>=1024px) the sidebar is always visible (expanded or collapsed).
   // On mobile/tablet it starts closed and is toggled by the hamburger button.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  // Sync sidebar state with viewport width
+  // Restore collapsed preference from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved === "true") setCollapsed(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Persist collapsed state
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(LS_KEY, String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Sync sidebar open state with viewport width
   useEffect(() => {
     function sync() {
       if (window.innerWidth >= 1024) {
@@ -26,24 +46,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isDesktop = sidebarOpen && typeof window !== "undefined" && window.innerWidth >= 1024;
+  const sidebarWidth = isDesktop
+    ? collapsed ? "var(--sidebar-collapsed-w)" : "var(--sidebar-w)"
+    : "0px";
 
   return (
     <div className="min-h-dvh flex">
-      {/* Sidebar – always shown on lg+, toggled on mobile */}
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar */}
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapsed}
+      />
 
-      {/* Main content — shifts right only when sidebar is pinned (lg+) */}
+      {/* Main content */}
       <div
         className="flex flex-col min-h-dvh transition-all duration-200"
         style={{
-          marginLeft: isDesktop ? "var(--sidebar-w)" : 0,
-          width: isDesktop ? "calc(100% - var(--sidebar-w))" : "100%",
+          marginLeft: isDesktop ? sidebarWidth : 0,
+          width: isDesktop ? `calc(100% - ${collapsed ? "var(--sidebar-collapsed-w)" : "var(--sidebar-w)"})` : "100%",
           paddingTop: "var(--topbar-h)",
           paddingBottom: "var(--bottombar-h)",
+          // Pass sidebar width to topbar via CSS variable
+          // @ts-expect-error CSS custom property
+          "--current-sidebar-w": sidebarWidth,
         }}
       >
         {/* Topbar */}
-        <Topbar onMenuToggle={() => setSidebarOpen((o) => !o)} />
+        <Topbar onMenuToggle={() => setSidebarOpen((o) => !o)} sidebarWidth={sidebarWidth} />
 
         {/* Hamburger — visible only on mobile/tablet (< lg) */}
         <div className="fixed top-0 left-0 z-50 flex items-center h-14 px-2 lg:hidden">

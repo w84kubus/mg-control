@@ -22,6 +22,7 @@
   --color-muted2: #334155;
 
   --sidebar-w: 240px;
+  --sidebar-collapsed-w: 64px;
   --topbar-h:  56px;
   --bottombar-h: 64px;
   --topbar-left: 0px;
