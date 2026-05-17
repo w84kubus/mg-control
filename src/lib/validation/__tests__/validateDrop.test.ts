@@ -95,7 +95,7 @@ describe("validateDrop", () => {
 describe("canUserMoveVehicle", () => {
   it("allows logistics", () => expect(canUserMoveVehicle("logistics")).toBe(true));
   it("allows mechanic", () => expect(canUserMoveVehicle("mechanic")).toBe(true));
-  it("allows salesperson", () => expect(canUserMoveVehicle("salesperson")).toBe(true));
+  it("denies salesperson", () => expect(canUserMoveVehicle("salesperson")).toBe(false));
   it("denies detailer", () => expect(canUserMoveVehicle("detailer")).toBe(false));
 });
 
