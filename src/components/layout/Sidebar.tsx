@@ -41,7 +41,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
     { href: "/wash-queue",     label: "Kolejka myjni",    icon: <Droplets size={17} /> },
     { href: "/deliveries",     label: "Dostawy",          icon: <Truck size={17} />, roles: ["logistics"] },
     { href: "/damage-reports", label: "Szkody",           icon: <AlertTriangle size={17} /> },
-    { href: "/demo-fleet",     label: "Demo / Flota",     icon: <Car size={17} /> },
+    { href: "/demo-fleet",     label: "Auta firmowe",     icon: <Car size={17} /> },
     { href: "/notifications",  label: "Powiadomienia",    icon: <Bell size={17} />, badge: unreadCount },
     { href: "/archive",        label: "Archiwum",         icon: <Archive size={17} />, roles: ["logistics", "salesperson"] },
     // Admin section

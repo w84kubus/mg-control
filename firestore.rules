@@ -95,6 +95,14 @@ service cloud.firestore {
       allow delete: if isLogistics() || isSales();
     }
 
+    // ─── companyVehicles (auta firmowe / demo) ──────────────────────────────
+    match /companyVehicles/{vehicleId} {
+      allow read:   if isStaff();
+      allow create: if isLogistics();
+      allow update: if isLogistics();
+      allow delete: if isLogistics();
+    }
+
     // ─── deliveries ────────────────────────────────────────────────────────
     match /deliveries/{deliveryId} {
       allow read:   if isStaff();
