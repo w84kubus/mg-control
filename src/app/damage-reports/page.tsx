@@ -10,6 +10,7 @@ import {
   updateDoc,
   addDoc,
   serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
@@ -305,7 +306,7 @@ export default function DamageReportsPage() {
           ...(report.stageHistory ?? []),
           {
             stage: next,
-            changedAt: serverTimestamp(),
+            changedAt: Timestamp.now(),
             changedBy: user.uid,
             changedByName: user.displayName,
             notes: "",
@@ -328,7 +329,7 @@ export default function DamageReportsPage() {
           ...(report.stageHistory ?? []),
           {
             stage: "resolved",
-            changedAt: serverTimestamp(),
+            changedAt: Timestamp.now(),
             changedBy: user.uid,
             changedByName: user.displayName,
             notes: "Szkoda zamknięta",
