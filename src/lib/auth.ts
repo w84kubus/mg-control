@@ -7,6 +7,7 @@ import {
   sendPasswordResetEmail,
   signOut as firebaseSignOut,
   type User,
+  type ActionCodeSettings,
 } from "firebase/auth";
 import {
   doc,
@@ -20,6 +21,16 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import type { AppUser, UserRole } from "@/types";
+
+const B = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const APP_URL = typeof window !== "undefined"
+  ? `${window.location.origin}${B}`
+  : `https://w84kubus.github.io${B}`;
+
+const actionCodeSettings: ActionCodeSettings = {
+  url: `${APP_URL}/auth/action`,
+  handleCodeInApp: false,
+};
 
 // ─── Error translation ────────────────────────────────────────────────────────
 
@@ -147,7 +158,7 @@ export async function registerWithEmail(
   const result = await createUserWithEmailAndPassword(auth, email, password);
   const { user } = result;
 
-  await sendEmailVerification(user);
+  await sendEmailVerification(user, actionCodeSettings);
   await ensureUserDocument(user, role);
   await firebaseSignOut(auth);
 
@@ -157,13 +168,13 @@ export async function registerWithEmail(
 export async function resendVerificationEmail(): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new Error("Brak zalogowanego użytkownika.");
-  await sendEmailVerification(user);
+  await sendEmailVerification(user, actionCodeSettings);
 }
 
 // ─── Password reset ───────────────────────────────────────────────────────────
 
 export async function resetPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
+  await sendPasswordResetEmail(auth, email, actionCodeSettings);
 }
 
 // ─── Sign out ─────────────────────────────────────────────────────────────────
