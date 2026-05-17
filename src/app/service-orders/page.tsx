@@ -809,7 +809,7 @@ export default function ServiceOrdersPage() {
                   type="date"
                   value={plannedDate}
                   onChange={(e) => setPlannedDate(e.target.value)}
-                  style={inputStyle}
+                  style={{ ...inputStyle, width: "auto", maxWidth: "12rem" }}
                 />
               </div>
 
