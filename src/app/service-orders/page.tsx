@@ -100,8 +100,6 @@ function ChannelForm({
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [chargedTo, setChargedTo] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerCode, setCustomerCode] = useState("");
   function handleSubmit() {
     if (!name.trim()) {
       toast.error("Podaj nazwę kanału.");
@@ -111,15 +109,10 @@ function ChannelForm({
       name: name.trim(),
       price: price.trim(),
       chargedTo: chargedTo.trim(),
-      customerName: customerName.trim(),
-      customerCode: customerCode.trim(),
     });
-    // Reset
     setName("");
     setPrice("");
     setChargedTo("");
-    setCustomerName("");
-    setCustomerCode("");
   }
 
   return (
@@ -152,20 +145,6 @@ function ChannelForm({
           placeholder="Na kogo obciążenie"
           value={chargedTo}
           onChange={(e) => setChargedTo(e.target.value)}
-          style={inputSmStyle}
-        />
-        <input
-          type="text"
-          placeholder="Nazwa klienta"
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-          style={inputSmStyle}
-        />
-        <input
-          type="text"
-          placeholder="Kod klienta"
-          value={customerCode}
-          onChange={(e) => setCustomerCode(e.target.value)}
           style={inputSmStyle}
         />
       </div>
@@ -210,6 +189,24 @@ function OrderDetail({ order }: { order: ServiceOrder }) {
         </span>
       </div>
 
+      {/* Customer info */}
+      {(order.customerName || order.customerCode) && (
+        <div className="flex items-center gap-4 flex-wrap">
+          {order.customerName && (
+            <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+              Klient:{" "}
+              <strong style={{ color: "var(--color-text)" }}>{order.customerName}</strong>
+            </span>
+          )}
+          {order.customerCode && (
+            <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+              Kod:{" "}
+              <strong style={{ color: "var(--color-text)" }}>{order.customerCode}</strong>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Planned delivery date */}
       {deliveryDate && (
         <div className="flex items-center gap-2">
@@ -241,7 +238,7 @@ function OrderDetail({ order }: { order: ServiceOrder }) {
           <table className="w-full text-xs">
             <thead>
               <tr style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--bg-border)" }}>
-                {["Kanał", "Cena", "Obciążenie", "Klient", "Kod"].map((h) => (
+                {["Kanał", "Cena", "Obciążenie"].map((h) => (
                   <th
                     key={h}
                     className="px-2.5 py-1.5 text-left font-semibold"
@@ -263,12 +260,6 @@ function OrderDetail({ order }: { order: ServiceOrder }) {
                   </td>
                   <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
                     {ch.chargedTo || "—"}
-                  </td>
-                  <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
-                    {ch.customerName || "—"}
-                  </td>
-                  <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
-                    {ch.customerCode || "—"}
                   </td>
                 </tr>
               ))}
@@ -298,6 +289,8 @@ export default function ServiceOrdersPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [channels, setChannels] = useState<ServiceOrderChannel[]>([]);
   const [showChannelForm, setShowChannelForm] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerCode, setCustomerCode] = useState("");
   const [plannedDate, setPlannedDate] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -327,6 +320,8 @@ export default function ServiceOrdersPage() {
     setSelectedVehicle(null);
     setChannels([]);
     setShowChannelForm(false);
+    setCustomerName("");
+    setCustomerCode("");
     setPlannedDate("");
     setShowModal(true);
   };
@@ -362,6 +357,8 @@ export default function ServiceOrdersPage() {
         vehicleModel: selectedVehicle.model,
         channels,
         status: "ordered" as ServiceOrderStatus,
+        customerName: customerName.trim(),
+        customerCode: customerCode.trim(),
         orderedBy: user.uid,
         orderedByName: user.displayName,
         plannedDeliveryDate: plannedDate
@@ -703,6 +700,29 @@ export default function ServiceOrdersPage() {
                 )}
               </div>
 
+              {/* ── Customer ── */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                  Klient
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nazwa klienta"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Kod klienta"
+                    value={customerCode}
+                    onChange={(e) => setCustomerCode(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
               {/* ── Channels ── */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
@@ -727,23 +747,11 @@ export default function ServiceOrdersPage() {
                               </span>
                             )}
                           </p>
-                          <div className="flex gap-2 flex-wrap mt-0.5">
-                            {ch.chargedTo && (
-                              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
-                                Obciążenie: {ch.chargedTo}
-                              </span>
-                            )}
-                            {ch.customerName && (
-                              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
-                                Klient: {ch.customerName}
-                              </span>
-                            )}
-                            {ch.customerCode && (
-                              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
-                                Kod: {ch.customerCode}
-                              </span>
-                            )}
-                          </div>
+                          {ch.chargedTo && (
+                            <p className="text-[10px] mt-0.5" style={{ color: "var(--color-muted)" }}>
+                              Obciążenie: {ch.chargedTo}
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"

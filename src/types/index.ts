@@ -81,8 +81,6 @@ export interface ServiceOrderChannel {
   name: string;
   price: string;
   chargedTo: string;
-  customerName: string;
-  customerCode: string;
 }
 
 export interface ServiceOrder {
@@ -96,6 +94,8 @@ export interface ServiceOrder {
   description?: string;
   channels: ServiceOrderChannel[];
   status: ServiceOrderStatus;
+  customerName: string;
+  customerCode: string;
   orderedBy: string;
   orderedByName: string;
   assignedAdvisorUid?: string | null;
