@@ -18,7 +18,7 @@ export default function BottomBar() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-end lg:hidden"
+    <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-end md:hidden"
          style={{
            background: "var(--bg-surface)",
            borderTop: "1px solid var(--bg-border)",

@@ -159,7 +159,7 @@ function SlotCard({
         </div>
         {/* Action buttons – visible on hover (logistics only) */}
         {canEdit && (
-        <div className="flex-shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex-shrink-0 flex gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
           {entry.status === "scheduled" && (
             <button
               onClick={() => onStatusChange(entry.id, "in_progress")}

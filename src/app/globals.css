@@ -30,9 +30,12 @@
   --topbar-left: 0px;
 }
 
-/* On lg+ screens topbar shifts right to clear the sidebar */
-@media (min-width: 1024px) {
-  :root { --topbar-left: var(--sidebar-w); }
+/* On md+ screens: sidebar visible, topbar shifts right, no bottom bar gap */
+@media (min-width: 768px) {
+  :root {
+    --topbar-left: var(--sidebar-w);
+    --bottombar-h: 0px;
+  }
 }
 
 /* Light overrides (when .light class is on html) */

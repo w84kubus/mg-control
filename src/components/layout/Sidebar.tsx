@@ -59,13 +59,13 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
     pathname === href || pathname.startsWith(href + "/");
 
   // On mobile the sidebar is always full-width (never collapsed)
-  const isCollapsed = collapsed && typeof window !== "undefined" && window.innerWidth >= 1024;
+  const isCollapsed = collapsed && typeof window !== "undefined" && window.innerWidth >= 768;
 
   return (
     <>
       {/* Overlay (mobile) */}
       {open && (
-        <div className="fixed inset-0 z-30 bg-black/60 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-30 bg-black/60 md:hidden" onClick={onClose} />
       )}
 
       <aside
@@ -98,7 +98,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
                   <span className="font-bold text-[13px] tracking-[2px] whitespace-nowrap" style={{ color: "var(--color-accent)" }}>CONTROL</span>
                 </div>
               </div>
-              <button onClick={onClose} className="lg:hidden p-1 rounded-lg" style={{ color: "var(--color-muted)" }}>
+              <button onClick={onClose} className="md:hidden p-1 rounded-lg" style={{ color: "var(--color-muted)" }}>
                 <X size={16} />
               </button>
             </>
@@ -113,7 +113,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => window.innerWidth < 1024 && onClose()}
+                onClick={() => window.innerWidth < 768 && onClose()}
                 title={isCollapsed ? item.label : undefined}
                 className="flex items-center gap-3 rounded-xl text-sm font-medium transition-colors relative"
                 style={{
@@ -151,7 +151,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
         {/* Collapse toggle (desktop only) */}
         <button
           onClick={onToggleCollapse}
-          className="hidden lg:flex items-center gap-2 px-3 py-2.5 mx-2 mb-1 rounded-xl text-xs font-medium transition-colors hover:opacity-80"
+          className="hidden md:flex items-center gap-2 px-3 py-2.5 mx-2 mb-1 rounded-xl text-xs font-medium transition-colors hover:opacity-80"
           style={{
             background: "var(--bg-surface2)",
             border: "1px solid var(--bg-border2)",

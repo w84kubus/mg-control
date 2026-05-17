@@ -97,7 +97,7 @@ export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: 
       <GlobalSearch isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
 
       <header
-        className="fixed top-0 right-0 z-40 flex items-center gap-2 pl-12 pr-2 sm:px-4 lg:pl-4 h-14"
+        className="fixed top-0 right-0 z-40 flex items-center gap-2 pl-12 pr-2 sm:px-4 md:pl-4 h-14"
         style={{
           left: sidebarWidth ?? "var(--topbar-left, 0px)",
           background: "var(--bg-surface)",
@@ -276,7 +276,7 @@ export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: 
             </button>
             {showTheme && (
               <div
-                className="absolute right-0 top-10 w-36 rounded-xl overflow-hidden z-50"
+                className="absolute right-0 top-10 w-36 max-w-[calc(100vw-1rem)] rounded-xl overflow-hidden z-50"
                 style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}
               >
                 {THEME_OPTIONS.map((opt) => (
@@ -332,7 +332,7 @@ export default function Topbar({ onMenuToggle, sidebarWidth }: { onMenuToggle?: 
 
             {showProfile && (
               <div
-                className="absolute right-0 top-10 w-48 rounded-xl overflow-hidden z-50"
+                className="absolute right-0 top-10 w-48 max-w-[calc(100vw-1rem)] rounded-xl overflow-hidden z-50"
                 style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)", boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}
               >
                 <div className="px-4 py-3 border-b" style={{ borderColor: "var(--bg-border)" }}>

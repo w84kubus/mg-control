@@ -465,9 +465,14 @@ export default function MapView({
     if (w <= 0 || h <= 0) return;
     const widthFit = (w / SVG_W) * 0.99;
     const heightFit = (h / SVG_H) * 0.98;
+    // Cap initS so the map never extends horizontally beyond the container —
+    // avoids the right-side clipping of GARAŻ that occurred when clientWidth
+    // was measured before the sidebar fully applied its margin.
+    const initS = Math.min(widthFit, heightFit * 1.5);
+    const minS  = Math.min(widthFit, heightFit);
     setScales({
-      initS: Number(widthFit.toFixed(4)),
-      minS: Number(Math.min(widthFit, heightFit).toFixed(4)),
+      initS: Number(initS.toFixed(4)),
+      minS:  Number(minS.toFixed(4)),
     });
   }, []);
 

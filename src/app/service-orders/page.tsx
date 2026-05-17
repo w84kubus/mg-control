@@ -139,7 +139,7 @@ function ChannelForm({
         style={inputSmStyle}
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <input
           type="text"
           placeholder="Cena"
@@ -235,7 +235,7 @@ function OrderDetail({ order }: { order: ServiceOrder }) {
       {/* Channels table */}
       {channels.length > 0 && (
         <div
-          className="rounded-lg overflow-hidden"
+          className="rounded-lg overflow-x-auto"
           style={{ border: "1px solid var(--bg-border2)" }}
         >
           <table className="w-full text-xs">
@@ -497,15 +497,11 @@ export default function ServiceOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                  {["Pojazd", "Kanały", "Status", "Utworzone przez", "Data"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: "var(--color-muted)" }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Pojazd</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Kanały</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Status</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Utworzone przez</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Data</th>
                   <th className="px-4 py-3 w-8" />
                 </tr>
               </thead>
@@ -573,10 +569,10 @@ export default function ServiceOrdersPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                        <td className="hidden sm:table-cell px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
                           {order.orderedByName ?? "—"}
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                        <td className="hidden sm:table-cell px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
                           {order.createdAt?.toDate
                             ? order.createdAt.toDate().toLocaleDateString("pl-PL")
                             : "—"}

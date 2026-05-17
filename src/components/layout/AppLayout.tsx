@@ -35,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Sync sidebar open state with viewport width
   useEffect(() => {
     function sync() {
-      if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= 768) {
         setSidebarOpen(true);
       } else {
         setSidebarOpen(false);
@@ -49,7 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Dampen trackpad scroll speed on macOS
   useSmoothScroll("main", 0.35);
 
-  const isDesktop = sidebarOpen && typeof window !== "undefined" && window.innerWidth >= 1024;
+  const isDesktop = sidebarOpen && typeof window !== "undefined" && window.innerWidth >= 768;
   const sidebarWidth = isDesktop
     ? collapsed ? "var(--sidebar-collapsed-w)" : "var(--sidebar-w)"
     : "0px";
@@ -81,7 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Topbar onMenuToggle={() => setSidebarOpen((o) => !o)} sidebarWidth={sidebarWidth} />
 
         {/* Hamburger — visible only on mobile/tablet (< lg) */}
-        <div className="fixed top-0 left-0 z-50 flex items-center h-14 px-2 lg:hidden">
+        <div className="fixed top-0 left-0 z-50 flex items-center h-14 px-2 md:hidden">
           <button
             onClick={() => setSidebarOpen((o) => !o)}
             className="w-10 h-10 flex items-center justify-center rounded-lg active:opacity-70"
