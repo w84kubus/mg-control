@@ -19,7 +19,8 @@ const HEAD = (
     <meta name="apple-mobile-web-app-title" content="MG Control" />
     <link rel="manifest" href="/mg-control/manifest.json" />
     <link rel="apple-touch-icon" href="/mg-control/icons/apple-touch-icon.png" />
-    <link rel="icon" href="/mg-control/icons/icon-192.png" type="image/png" />
+    <link rel="icon" href="/mg-control/icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/mg-control/icons/favicon-16.png" type="image/png" sizes="16x16" />
   </>
 );
 
