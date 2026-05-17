@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   collection,
   query,
@@ -10,21 +10,22 @@ import {
   updateDoc,
   addDoc,
   serverTimestamp,
-  getDocs,
-  where,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useVehiclesStore } from "@/store/vehiclesStore";
 import { toast } from "react-toastify";
-import { Wrench, Plus, X, Search } from "lucide-react";
+import { Wrench, Plus, X, Search, Trash2, ChevronDown, ChevronUp, User, Calendar } from "lucide-react";
 import type {
   ServiceOrder,
   ServiceOrderType,
   ServiceOrderStatus,
-  AppUser,
+  ServiceOrderChannel,
   Vehicle,
 } from "@/types";
+
+// ─── Legacy compat ──────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<ServiceOrderType, string> = {
   pdi: "PDI",
@@ -49,17 +50,36 @@ const STATUS_COLORS: Record<ServiceOrderStatus, string> = {
 };
 
 const STATUS_ORDER: ServiceOrderStatus[] = ["ordered", "in_progress", "partial", "ready"];
-const ALL_TYPES: ServiceOrderType[] = ["pdi", "wash", "ceramic", "accessory", "other"];
 
 function cycleStatus(current: ServiceOrderStatus): ServiceOrderStatus {
   const idx = STATUS_ORDER.indexOf(current);
   return STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
 }
 
-interface Advisor {
-  uid: string;
-  displayName: string;
+/** Get display summary for channels (new) or legacy type field */
+function getChannelsSummary(order: ServiceOrder): string {
+  if (order.channels && order.channels.length > 0) {
+    return order.channels.map((c) => c.name).join(", ");
+  }
+  // Legacy fallback
+  if (order.type) return TYPE_LABELS[order.type] ?? order.type;
+  return "—";
 }
+
+// ─── Suggested channel names ────────────────────────────────────────────────
+
+const SUGGESTED_CHANNELS = [
+  "PDI",
+  "Akcesoria",
+  "Myjnia",
+  "Dywaniki gumowe",
+  "Mata bagażnika",
+  "Waxoyl",
+  "Ceramika",
+  "Hak holowniczy",
+];
+
+// ─── Styles ─────────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
   background: "var(--bg-primary)",
@@ -72,6 +92,236 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
 };
 
+const inputSmStyle: React.CSSProperties = {
+  ...inputStyle,
+  fontSize: "0.8rem",
+  padding: "0.4rem 0.6rem",
+  borderRadius: "0.5rem",
+};
+
+// ─── Channel Form (inline) ──────────────────────────────────────────────────
+
+function ChannelForm({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (ch: ServiceOrderChannel) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [chargedTo, setChargedTo] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerCode, setCustomerCode] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const filteredSuggestions = SUGGESTED_CHANNELS.filter((s) =>
+    s.toLowerCase().includes(name.toLowerCase())
+  );
+
+  function handleSubmit() {
+    if (!name.trim()) {
+      toast.error("Podaj nazwę kanału.");
+      return;
+    }
+    onAdd({
+      name: name.trim(),
+      price: price.trim(),
+      chargedTo: chargedTo.trim(),
+      customerName: customerName.trim(),
+      customerCode: customerCode.trim(),
+    });
+    // Reset
+    setName("");
+    setPrice("");
+    setChargedTo("");
+    setCustomerName("");
+    setCustomerCode("");
+  }
+
+  return (
+    <div
+      className="rounded-xl p-3 flex flex-col gap-2.5"
+      style={{ background: "var(--bg-primary)", border: "1px solid var(--color-accent)" }}
+    >
+      <p className="text-xs font-bold" style={{ color: "var(--color-accent)" }}>
+        Nowy kanał zlecenia
+      </p>
+
+      {/* Name with suggestions */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Nazwa (np. PDI, Ceramika, Dywaniki…)"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setShowSuggestions(true); }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          style={inputSmStyle}
+        />
+        {showSuggestions && name.length > 0 && filteredSuggestions.length > 0 && (
+          <div
+            className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg overflow-hidden"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)" }}
+          >
+            {filteredSuggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onMouseDown={() => { setName(s); setShowSuggestions(false); }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:opacity-70"
+                style={{ color: "var(--color-text)", borderBottom: "1px solid var(--bg-border)" }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="text"
+          placeholder="Cena"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          style={inputSmStyle}
+        />
+        <input
+          type="text"
+          placeholder="Na kogo obciążenie"
+          value={chargedTo}
+          onChange={(e) => setChargedTo(e.target.value)}
+          style={inputSmStyle}
+        />
+        <input
+          type="text"
+          placeholder="Nazwa klienta"
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+          style={inputSmStyle}
+        />
+        <input
+          type="text"
+          placeholder="Kod klienta"
+          value={customerCode}
+          onChange={(e) => setCustomerCode(e.target.value)}
+          style={inputSmStyle}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+          style={{ color: "var(--color-muted)" }}
+        >
+          Anuluj
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
+          style={{ background: "var(--color-accent)", color: "#fff" }}
+        >
+          Dodaj kanał
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Order Detail (expanded row) ────────────────────────────────────────────
+
+function OrderDetail({ order }: { order: ServiceOrder }) {
+  const channels = order.channels ?? [];
+  const hasLegacy = !channels.length && order.type;
+  const deliveryDate = order.plannedDeliveryDate;
+
+  return (
+    <div className="flex flex-col gap-3 px-4 py-3" style={{ background: "var(--bg-primary)" }}>
+      {/* Creator info */}
+      <div className="flex items-center gap-2">
+        <User size={12} style={{ color: "var(--color-muted)" }} />
+        <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+          Utworzone przez:{" "}
+          <strong style={{ color: "var(--color-text)" }}>{order.orderedByName}</strong>
+        </span>
+      </div>
+
+      {/* Planned delivery date */}
+      {deliveryDate && (
+        <div className="flex items-center gap-2">
+          <Calendar size={12} style={{ color: "var(--color-muted)" }} />
+          <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+            Planowane wydanie:{" "}
+            <strong style={{ color: "var(--color-text)" }}>
+              {(deliveryDate as unknown as { toDate: () => Date }).toDate
+                ? (deliveryDate as unknown as { toDate: () => Date }).toDate().toLocaleDateString("pl-PL")
+                : "—"}
+            </strong>
+          </span>
+        </div>
+      )}
+
+      {/* Legacy description */}
+      {hasLegacy && order.description && (
+        <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+          Opis: {order.description}
+        </p>
+      )}
+
+      {/* Channels table */}
+      {channels.length > 0 && (
+        <div
+          className="rounded-lg overflow-hidden"
+          style={{ border: "1px solid var(--bg-border2)" }}
+        >
+          <table className="w-full text-xs">
+            <thead>
+              <tr style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--bg-border)" }}>
+                {["Kanał", "Cena", "Obciążenie", "Klient", "Kod"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-2.5 py-1.5 text-left font-semibold"
+                    style={{ color: "var(--color-muted)" }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map((ch, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--bg-border)" }}>
+                  <td className="px-2.5 py-1.5 font-medium" style={{ color: "var(--color-text)" }}>
+                    {ch.name}
+                  </td>
+                  <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
+                    {ch.price || "—"}
+                  </td>
+                  <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
+                    {ch.chargedTo || "—"}
+                  </td>
+                  <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
+                    {ch.customerName || "—"}
+                  </td>
+                  <td className="px-2.5 py-1.5" style={{ color: "var(--color-muted)" }}>
+                    {ch.customerCode || "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ──────────────────────────────────────────────────────────────
+
 export default function ServiceOrdersPage() {
   const { user } = useAuthStore();
   const { vehicles, subscribe } = useVehiclesStore();
@@ -79,17 +329,16 @@ export default function ServiceOrdersPage() {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<ServiceOrderStatus | "all">("all");
-  const [typeFilter, setTypeFilter] = useState<ServiceOrderType | "all">("all");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [advisors, setAdvisors] = useState<Advisor[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Create modal state
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [orderType, setOrderType] = useState<ServiceOrderType>("pdi");
-  const [description, setDescription] = useState("");
-  const [advisorUid, setAdvisorUid] = useState<string>("");
+  const [channels, setChannels] = useState<ServiceOrderChannel[]>([]);
+  const [showChannelForm, setShowChannelForm] = useState(false);
+  const [plannedDate, setPlannedDate] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -113,30 +362,12 @@ export default function ServiceOrdersPage() {
     return unsub;
   }, []);
 
-  const loadAdvisors = useCallback(async () => {
-    if (advisors.length > 0) return;
-    try {
-      const snap = await getDocs(
-        query(collection(db, "users"), where("role", "==", "advisor"))
-      );
-      setAdvisors(
-        snap.docs.map((d) => ({
-          uid: d.id,
-          displayName: (d.data() as AppUser).displayName,
-        }))
-      );
-    } catch {
-      // silently ignore
-    }
-  }, [advisors.length]);
-
   const openModal = () => {
-    loadAdvisors();
     setVehicleSearch("");
     setSelectedVehicle(null);
-    setOrderType("pdi");
-    setDescription("");
-    setAdvisorUid("");
+    setChannels([]);
+    setShowChannelForm(false);
+    setPlannedDate("");
     setShowModal(true);
   };
 
@@ -158,22 +389,24 @@ export default function ServiceOrdersPage() {
       toast.error("Wybierz pojazd.");
       return;
     }
+    if (channels.length === 0) {
+      toast.error("Dodaj przynajmniej jeden kanał zlecenia.");
+      return;
+    }
     if (!user) return;
     setSaving(true);
     try {
-      const advisor = advisors.find((a) => a.uid === advisorUid) ?? null;
       await addDoc(collection(db, "serviceOrders"), {
         vehicleId: selectedVehicle.id,
         vehicleVin: selectedVehicle.vin,
         vehicleModel: selectedVehicle.model,
-        type: orderType,
+        channels,
         status: "ordered" as ServiceOrderStatus,
-        description: description.trim(),
         orderedBy: user.uid,
         orderedByName: user.displayName,
-        assignedAdvisorUid: advisor?.uid ?? null,
-        assignedAdvisorName: advisor?.displayName ?? null,
-        plannedDeliveryDate: null,
+        plannedDeliveryDate: plannedDate
+          ? Timestamp.fromDate(new Date(plannedDate + "T00:00:00"))
+          : null,
         completionDate: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -187,6 +420,10 @@ export default function ServiceOrdersPage() {
     }
   }
 
+  function removeChannel(idx: number) {
+    setChannels((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   const modalVehicles = vehicles
     .filter((v) =>
       vehicleSearch.trim()
@@ -198,12 +435,12 @@ export default function ServiceOrdersPage() {
 
   const filtered = orders.filter((o) => {
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
-    if (typeFilter !== "all" && o.type !== typeFilter) return false;
     if (search.trim()) {
       const s = search.toLowerCase();
       if (
         !o.vehicleModel.toLowerCase().includes(s) &&
-        !o.vehicleVin.toLowerCase().includes(s)
+        !o.vehicleVin.toLowerCase().includes(s) &&
+        !getChannelsSummary(o).toLowerCase().includes(s)
       )
         return false;
     }
@@ -256,24 +493,6 @@ export default function ServiceOrdersPage() {
           ))}
         </div>
 
-        {/* Type chips */}
-        <div className="flex flex-wrap gap-2">
-          {(["all", ...ALL_TYPES] as (ServiceOrderType | "all")[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
-              className="px-3 py-1 rounded-full text-xs font-medium transition-opacity"
-              style={{
-                background: typeFilter === t ? "var(--bg-border2)" : "var(--bg-surface)",
-                color: typeFilter === t ? "var(--color-text)" : "var(--color-muted)",
-                border: "1px solid var(--bg-border)",
-              }}
-            >
-              {t === "all" ? "Wszystkie typy" : TYPE_LABELS[t as ServiceOrderType]}
-            </button>
-          ))}
-        </div>
-
         {/* Search */}
         <div className="relative w-full max-w-xs">
           <Search
@@ -283,7 +502,7 @@ export default function ServiceOrdersPage() {
           />
           <input
             type="text"
-            placeholder="Szukaj modelu / VIN…"
+            placeholder="Szukaj modelu / VIN / kanał…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ ...inputStyle, paddingLeft: "2rem" }}
@@ -318,7 +537,7 @@ export default function ServiceOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                  {["Pojazd", "Typ", "Status", "Doradca", "Data"].map((h) => (
+                  {["Pojazd", "Kanały", "Status", "Utworzone przez", "Data"].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
@@ -327,76 +546,115 @@ export default function ServiceOrdersPage() {
                       {h}
                     </th>
                   ))}
+                  <th className="px-4 py-3 w-8" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((order) => (
-                  <tr key={order.id} style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-sm" style={{ color: "var(--color-text)" }}>
-                        {order.vehicleModel}
-                      </p>
-                      <p
-                        className="text-xs font-mono"
-                        style={{ color: "var(--color-muted)" }}
-                      >
-                        {order.vehicleVin.slice(-7)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
-                      {TYPE_LABELS[order.type]}
-                    </td>
-                    <td className="px-4 py-3">
-                      {user?.role === "logistics" ? (
-                        <button
-                          onClick={() => handleStatusClick(order)}
-                          title="Kliknij aby zmienić status"
-                          className="px-2 py-0.5 rounded-full text-xs font-semibold hover:opacity-75 transition-opacity"
-                          style={{
-                            background: STATUS_COLORS[order.status] + "26",
-                            color: STATUS_COLORS[order.status],
-                            border: `1px solid ${STATUS_COLORS[order.status]}40`,
-                          }}
-                        >
-                          {STATUS_LABELS[order.status]}
-                        </button>
-                      ) : (
-                        <span
-                          className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                          style={{
-                            background: STATUS_COLORS[order.status] + "26",
-                            color: STATUS_COLORS[order.status],
-                            border: `1px solid ${STATUS_COLORS[order.status]}40`,
-                          }}
-                        >
-                          {STATUS_LABELS[order.status]}
-                        </span>
+                {filtered.map((order) => {
+                  const isExpanded = expandedId === order.id;
+                  return (
+                    <Fragment key={order.id}>
+                      <tr className="group" style={{ borderBottom: isExpanded ? "none" : "1px solid var(--bg-border)" }}>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-sm" style={{ color: "var(--color-text)" }}>
+                            {order.vehicleModel}
+                          </p>
+                          <p className="text-xs font-mono" style={{ color: "var(--color-muted)" }}>
+                            {order.vehicleVin.slice(-7)}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(order.channels ?? []).length > 0 ? (
+                              order.channels.map((ch, i) => (
+                                <span
+                                  key={i}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                  style={{
+                                    background: "var(--bg-primary)",
+                                    border: "1px solid var(--bg-border2)",
+                                    color: "var(--color-text)",
+                                  }}
+                                >
+                                  {ch.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                                {order.type ? (TYPE_LABELS[order.type] ?? order.type) : "—"}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {user?.role === "logistics" ? (
+                            <button
+                              onClick={() => handleStatusClick(order)}
+                              title="Kliknij aby zmienić status"
+                              className="px-2 py-0.5 rounded-full text-xs font-semibold hover:opacity-75 transition-opacity"
+                              style={{
+                                background: STATUS_COLORS[order.status] + "26",
+                                color: STATUS_COLORS[order.status],
+                                border: `1px solid ${STATUS_COLORS[order.status]}40`,
+                              }}
+                            >
+                              {STATUS_LABELS[order.status]}
+                            </button>
+                          ) : (
+                            <span
+                              className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                              style={{
+                                background: STATUS_COLORS[order.status] + "26",
+                                color: STATUS_COLORS[order.status],
+                                border: `1px solid ${STATUS_COLORS[order.status]}40`,
+                              }}
+                            >
+                              {STATUS_LABELS[order.status]}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                          {order.orderedByName ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                          {order.createdAt?.toDate
+                            ? order.createdAt.toDate().toLocaleDateString("pl-PL")
+                            : "—"}
+                        </td>
+                        <td className="px-2 py-3">
+                          <button
+                            onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                            className="p-1 rounded-lg hover:opacity-70"
+                            style={{ color: "var(--color-muted)" }}
+                          >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${order.id}-detail`} style={{ borderBottom: "1px solid var(--bg-border)" }}>
+                          <td colSpan={6} style={{ padding: 0 }}>
+                            <OrderDetail order={order} />
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
-                      {order.assignedAdvisorName ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
-                      {order.createdAt?.toDate
-                        ? order.createdAt.toDate().toLocaleDateString("pl-PL")
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Create Modal */}
+      {/* ── Create Modal ─────────────────────────────────────────────────── */}
       {showModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.75)" }}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
+            className="relative w-full max-w-lg rounded-2xl p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
           >
             <div className="flex items-center justify-between">
@@ -413,12 +671,9 @@ export default function ServiceOrdersPage() {
             </div>
 
             <form onSubmit={handleCreate} className="flex flex-col gap-4">
-              {/* Vehicle search */}
+              {/* ── Vehicle search ── */}
               <div className="flex flex-col gap-1.5">
-                <label
-                  className="text-xs font-medium"
-                  style={{ color: "var(--color-muted)" }}
-                >
+                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
                   Pojazd (VIN / model)
                 </label>
                 {selectedVehicle ? (
@@ -432,18 +687,11 @@ export default function ServiceOrdersPage() {
                   >
                     <span>
                       {selectedVehicle.model}{" "}
-                      <span
-                        className="font-mono text-xs"
-                        style={{ color: "var(--color-muted)" }}
-                      >
+                      <span className="font-mono text-xs" style={{ color: "var(--color-muted)" }}>
                         {selectedVehicle.vin.slice(-7)}
                       </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVehicle(null)}
-                      style={{ color: "var(--color-muted)" }}
-                    >
+                    <button type="button" onClick={() => setSelectedVehicle(null)} style={{ color: "var(--color-muted)" }}>
                       <X size={12} />
                     </button>
                   </div>
@@ -469,15 +717,12 @@ export default function ServiceOrdersPage() {
                         style={{
                           background: "var(--bg-primary)",
                           border: "1px solid var(--bg-border2)",
-                          maxHeight: "12rem",
+                          maxHeight: "10rem",
                           overflowY: "auto",
                         }}
                       >
                         {modalVehicles.length === 0 ? (
-                          <p
-                            className="px-3 py-2 text-xs"
-                            style={{ color: "var(--color-muted)" }}
-                          >
+                          <p className="px-3 py-2 text-xs" style={{ color: "var(--color-muted)" }}>
                             Brak wyników
                           </p>
                         ) : (
@@ -485,21 +730,12 @@ export default function ServiceOrdersPage() {
                             <button
                               key={v.id}
                               type="button"
-                              onClick={() => {
-                                setSelectedVehicle(v);
-                                setVehicleSearch("");
-                              }}
+                              onClick={() => { setSelectedVehicle(v); setVehicleSearch(""); }}
                               className="w-full text-left px-3 py-2 text-xs hover:opacity-70"
-                              style={{
-                                borderBottom: "1px solid var(--bg-border)",
-                                color: "var(--color-text)",
-                              }}
+                              style={{ borderBottom: "1px solid var(--bg-border)", color: "var(--color-text)" }}
                             >
                               {v.model}{" "}
-                              <span
-                                className="font-mono"
-                                style={{ color: "var(--color-muted)" }}
-                              >
+                              <span className="font-mono" style={{ color: "var(--color-muted)" }}>
                                 {v.vin.slice(-7)}
                               </span>
                             </button>
@@ -511,66 +747,109 @@ export default function ServiceOrdersPage() {
                 )}
               </div>
 
-              {/* Type */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  className="text-xs font-medium"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  Typ zlecenia
+              {/* ── Channels ── */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                  Kanały zlecenia
                 </label>
-                <select
-                  value={orderType}
-                  onChange={(e) => setOrderType(e.target.value as ServiceOrderType)}
-                  style={inputStyle}
-                >
-                  {ALL_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
+
+                {/* Added channels list */}
+                {channels.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    {channels.map((ch, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between px-3 py-2 rounded-xl"
+                        style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                            {ch.name}
+                            {ch.price && (
+                              <span className="font-normal ml-2" style={{ color: "var(--color-muted)" }}>
+                                {ch.price} zł
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex gap-2 flex-wrap mt-0.5">
+                            {ch.chargedTo && (
+                              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
+                                Obciążenie: {ch.chargedTo}
+                              </span>
+                            )}
+                            {ch.customerName && (
+                              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
+                                Klient: {ch.customerName}
+                              </span>
+                            )}
+                            {ch.customerCode && (
+                              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
+                                Kod: {ch.customerCode}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeChannel(i)}
+                          className="p-1 rounded-lg hover:opacity-70 shrink-0 ml-2"
+                          style={{ color: "var(--color-danger)" }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Channel form or add button */}
+                {showChannelForm ? (
+                  <ChannelForm
+                    onAdd={(ch) => { setChannels((p) => [...p, ch]); setShowChannelForm(false); }}
+                    onCancel={() => setShowChannelForm(false)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowChannelForm(true)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold hover:opacity-80 transition-opacity"
+                    style={{
+                      background: "var(--bg-primary)",
+                      border: "1px dashed var(--bg-border2)",
+                      color: "var(--color-accent)",
+                    }}
+                  >
+                    <Plus size={12} /> Dodaj kanał do zlecenia
+                  </button>
+                )}
               </div>
 
-              {/* Description */}
+              {/* ── Planned delivery date ── */}
               <div className="flex flex-col gap-1.5">
-                <label
-                  className="text-xs font-medium"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  Opis
+                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                  Data planowanego wydania
                 </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  placeholder="Opis prac do wykonania…"
-                  style={{ ...inputStyle, resize: "vertical" }}
+                <input
+                  type="date"
+                  value={plannedDate}
+                  onChange={(e) => setPlannedDate(e.target.value)}
+                  style={inputStyle}
                 />
               </div>
 
-              {/* Advisor */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  className="text-xs font-medium"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  Doradca serwisu (opcjonalnie)
-                </label>
-                <select
-                  value={advisorUid}
-                  onChange={(e) => setAdvisorUid(e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">— Brak przypisania —</option>
-                  {advisors.map((a) => (
-                    <option key={a.uid} value={a.uid}>
-                      {a.displayName}
-                    </option>
-                  ))}
-                </select>
+              {/* ── Creator info (auto) ── */}
+              <div
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}
+              >
+                <User size={13} style={{ color: "var(--color-accent)" }} />
+                <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                  Zlecenie utworzy:{" "}
+                  <strong style={{ color: "var(--color-text)" }}>{user?.displayName ?? "—"}</strong>
+                </span>
               </div>
 
+              {/* ── Buttons ── */}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -586,7 +865,7 @@ export default function ServiceOrdersPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || !selectedVehicle}
+                  disabled={saving || !selectedVehicle || channels.length === 0}
                   className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
                   style={{ background: "var(--color-accent)", color: "#fff" }}
                 >

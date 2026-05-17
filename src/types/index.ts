@@ -77,18 +77,29 @@ export interface Vehicle {
 export type ServiceOrderType = "pdi" | "wash" | "ceramic" | "accessory" | "other";
 export type ServiceOrderStatus = "ordered" | "in_progress" | "partial" | "ready";
 
+export interface ServiceOrderChannel {
+  name: string;
+  price: string;
+  chargedTo: string;
+  customerName: string;
+  customerCode: string;
+}
+
 export interface ServiceOrder {
   id: string;
   vehicleId: string;
   vehicleVin: string;
   vehicleModel: string;
-  type: ServiceOrderType;
+  /** @deprecated use channels[] instead */
+  type?: ServiceOrderType;
+  /** @deprecated use channels[] instead */
+  description?: string;
+  channels: ServiceOrderChannel[];
   status: ServiceOrderStatus;
-  description: string;
   orderedBy: string;
   orderedByName: string;
-  assignedAdvisorUid: string | null;
-  assignedAdvisorName: string | null;
+  assignedAdvisorUid?: string | null;
+  assignedAdvisorName?: string | null;
   plannedDeliveryDate: Timestamp | null;
   completionDate: Timestamp | null;
   createdAt: Timestamp;

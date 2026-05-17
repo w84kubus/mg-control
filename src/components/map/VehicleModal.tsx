@@ -15,7 +15,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useZonesStore } from "@/store/zonesStore";
 import { useVehiclesStore } from "@/store/vehiclesStore";
 import { toast } from "react-toastify";
-import type { Vehicle, ServiceOrder, DamageReport, VehicleLog, VehicleDocument, DocumentType, VehicleStatus, VehicleType, ServiceOrderType } from "@/types";
+import type { Vehicle, ServiceOrder, DamageReport, VehicleLog, VehicleDocument, DocumentType, VehicleStatus, VehicleType } from "@/types";
 import { STATUS_COLORS, STATUS_LABELS } from "./VehicleTile";
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
@@ -407,14 +407,9 @@ const ORDER_TYPE_LABELS: Record<string, string> = { pdi: "PDI", wash: "Mycie", c
 const ORDER_STATUS_LABELS: Record<string, string> = { ordered: "Zlecone", in_progress: "W toku", partial: "Częściowo", ready: "Gotowe" };
 const ORDER_STATUS_COLORS: Record<string, string> = { ordered: "#3b82f6", in_progress: "#eab308", partial: "#a78bfa", ready: "#22c55e" };
 
-function TabZlecenia({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehicle }) {
-  const { user } = useAuthStore();
+function TabZlecenia({ vehicleId }: { vehicleId: string }) {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [type, setType] = useState<ServiceOrderType>("pdi");
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -425,100 +420,53 @@ function TabZlecenia({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehic
     return unsub;
   }, [vehicleId]);
 
-  async function createOrder(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user || !description.trim()) return;
-    setSaving(true);
-    try {
-      const ref = doc(collection(db, "serviceOrders"));
-      await addDoc(collection(db, "serviceOrders"), {
-        id: ref.id,
-        vehicleId,
-        vehicleVin: vehicle.vin,
-        vehicleModel: vehicle.model,
-        type,
-        status: "ordered",
-        description: description.trim(),
-        orderedBy: user.uid,
-        orderedByName: user.displayName ?? "Nieznany",
-        assignedAdvisorUid: null,
-        assignedAdvisorName: null,
-        plannedDeliveryDate: null,
-        completionDate: null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      await updateDoc(doc(db, "vehicles", vehicleId), {
-        activeServiceOrderIds: [...(vehicle.activeServiceOrderIds ?? []), ref.id],
-        updatedAt: serverTimestamp(), updatedBy: user.uid,
-      });
-      setDescription(""); setShowForm(false);
-    } catch { /* toast shown by parent */ } finally { setSaving(false); }
-  }
-
   if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-muted)" }}>Ładowanie…</div>;
+
+  if (orders.length === 0) {
+    return (
+      <div className="py-8 flex flex-col items-center gap-2">
+        <Wrench size={28} style={{ color: "var(--color-muted)", opacity: 0.4 }} />
+        <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak zleceń serwisowych</p>
+        <p className="text-[10px]" style={{ color: "var(--color-muted)" }}>Dodaj zlecenie z poziomu strony Zlecenia serwisowe</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
-      {user?.role === "logistics" && !showForm && (
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold w-full justify-center"
-          style={{ background: "var(--bg-primary)", border: "1px dashed var(--bg-border2)", color: "var(--color-accent)" }}>
-          <Plus size={12} /> Nowe zlecenie
-        </button>
-      )}
-
-      {showForm && (
-        <form onSubmit={createOrder} className="flex flex-col gap-2 rounded-xl p-3"
-              style={{ background: "var(--bg-primary)", border: "1px solid var(--color-accent)" }}>
-          <select value={type} onChange={(e) => setType(e.target.value as ServiceOrderType)}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}>
-            {Object.entries(ORDER_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} required
-            placeholder="Opis zlecenia…" rows={2}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }} />
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShowForm(false)}
-              className="flex-1 py-1.5 rounded-lg text-xs" style={{ color: "var(--color-muted)" }}>Anuluj</button>
-            <button type="submit" disabled={saving || !description.trim()}
-              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-              style={{ background: "var(--color-accent)", color: "#fff" }}>
-              {saving ? "…" : "Dodaj"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {orders.length === 0 && !showForm && (
-        <div className="py-8 flex flex-col items-center gap-2">
-          <Wrench size={28} style={{ color: "var(--color-muted)", opacity: 0.4 }} />
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak zleceń serwisowych</p>
-        </div>
-      )}
-
       {orders.map((o) => {
         const sc = ORDER_STATUS_COLORS[o.status] ?? "#64748b";
+        const channels = o.channels ?? [];
+        const hasChannels = channels.length > 0;
+
         return (
           <div key={o.id} className="rounded-xl px-3 py-2.5"
                style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
-                {ORDER_TYPE_LABELS[o.type] ?? o.type}
-              </p>
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              <div className="flex flex-wrap gap-1">
+                {hasChannels ? (
+                  channels.map((ch, i) => (
+                    <span key={i} className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                      {ch.name}{i < channels.length - 1 ? "," : ""}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                    {o.type ? (ORDER_TYPE_LABELS[o.type] ?? o.type) : "—"}
+                  </p>
+                )}
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ml-2"
                     style={{ background: `${sc}20`, color: sc }}>
                 {ORDER_STATUS_LABELS[o.status] ?? o.status}
               </span>
             </div>
-            <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{o.description}</p>
-            {o.assignedAdvisorName && (
-              <p className="text-[10px] mt-1" style={{ color: "var(--color-muted2)" }}>
-                Doradca: {o.assignedAdvisorName}
-              </p>
+            {!hasChannels && o.description && (
+              <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{o.description}</p>
             )}
+            <p className="text-[10px] mt-1" style={{ color: "var(--color-muted)" }}>
+              Utworzone przez: {o.orderedByName}
+            </p>
           </div>
         );
       })}
@@ -992,7 +940,7 @@ export default function VehicleModal({ vehicleId, onClose }: Props) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
           {tab === "dane"      && <TabDane vehicle={vehicle} />}
-          {tab === "zlecenia"  && <TabZlecenia vehicleId={vehicleId} vehicle={vehicle} />}
+          {tab === "zlecenia"  && <TabZlecenia vehicleId={vehicleId} />}
           {tab === "szkody"    && <TabSzkody vehicleId={vehicleId} vehicle={vehicle} />}
           {tab === "dokumenty" && <TabDokumenty vehicleId={vehicleId} vehicle={vehicle} />}
           {tab === "historia"  && <TabHistoria vehicleId={vehicleId} />}
