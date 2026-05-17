@@ -5,6 +5,7 @@ import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import BottomBar from "./BottomBar";
 import Topbar from "./Topbar";
+import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 
 const LS_KEY = "mg-sidebar-collapsed";
 
@@ -44,6 +45,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", sync);
     return () => window.removeEventListener("resize", sync);
   }, []);
+
+  // Dampen trackpad scroll speed on macOS
+  useSmoothScroll("main", 0.35);
 
   const isDesktop = sidebarOpen && typeof window !== "undefined" && window.innerWidth >= 1024;
   const sidebarWidth = isDesktop
