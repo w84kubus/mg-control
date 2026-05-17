@@ -68,17 +68,6 @@ function getChannelsSummary(order: ServiceOrder): string {
 
 // ─── Suggested channel names ────────────────────────────────────────────────
 
-const SUGGESTED_CHANNELS = [
-  "PDI",
-  "Akcesoria",
-  "Myjnia",
-  "Dywaniki gumowe",
-  "Mata bagażnika",
-  "Waxoyl",
-  "Ceramika",
-  "Hak holowniczy",
-];
-
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
@@ -113,12 +102,6 @@ function ChannelForm({
   const [chargedTo, setChargedTo] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerCode, setCustomerCode] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const filteredSuggestions = SUGGESTED_CHANNELS.filter((s) =>
-    s.toLowerCase().includes(name.toLowerCase())
-  );
-
   function handleSubmit() {
     if (!name.trim()) {
       toast.error("Podaj nazwę kanału.");
@@ -148,36 +131,13 @@ function ChannelForm({
         Nowy kanał zlecenia
       </p>
 
-      {/* Name with suggestions */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Nazwa (np. PDI, Ceramika, Dywaniki…)"
-          value={name}
-          onChange={(e) => { setName(e.target.value); setShowSuggestions(true); }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          style={inputSmStyle}
-        />
-        {showSuggestions && name.length > 0 && filteredSuggestions.length > 0 && (
-          <div
-            className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg overflow-hidden"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)" }}
-          >
-            {filteredSuggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onMouseDown={() => { setName(s); setShowSuggestions(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:opacity-70"
-                style={{ color: "var(--color-text)", borderBottom: "1px solid var(--bg-border)" }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <input
+        type="text"
+        placeholder="Nazwa kanału"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        style={inputSmStyle}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <input
