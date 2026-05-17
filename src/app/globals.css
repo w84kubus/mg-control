@@ -21,6 +21,8 @@
   --color-muted:  #64748b;
   --color-muted2: #334155;
 
+  --logo-invert: invert(1);
+
   --sidebar-w: 240px;
   --sidebar-collapsed-w: 64px;
   --topbar-h:  56px;
@@ -43,6 +45,7 @@
   --color-text:   #0f172a;
   --color-muted:  #64748b;
   --color-muted2: #94a3b8;
+  --logo-invert:  invert(0);
 }
 
 /* ─── Base ───────────────────────────────────────────────────────────────── */

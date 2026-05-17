@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
@@ -10,6 +11,9 @@ import LoginForm from "@/components/auth/LoginForm";
 import RegisterForm from "@/components/auth/RegisterForm";
 import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import PrivacyPolicyModal from "@/components/auth/PrivacyPolicyModal";
+
+const B = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const MG_ICON = `${B}/logo-mg-icon.png`;
 
 type View = "login" | "register";
 
@@ -45,16 +49,14 @@ export default function LoginPage() {
            style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
 
         {/* Logo */}
-        <div className="flex flex-col items-center gap-1 mb-1">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl text-white"
-               style={{ background: "var(--color-accent)" }}>
-            MG
+        <div className="flex flex-col items-center gap-2 mb-1">
+          <img src={MG_ICON} alt="MG" style={{ width: 52, height: 52, objectFit: "contain", filter: "var(--logo-invert, invert(1))" }} />
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xl font-black tracking-[2px]" style={{ color: "var(--color-text)" }}>MG</span>
+            <span className="text-xl font-bold tracking-[3px]" style={{ color: "var(--color-accent)" }}>CONTROL</span>
           </div>
-          <h1 className="text-lg font-black tracking-[3px] mt-2" style={{ color: "var(--color-text)" }}>
-            MG CONTROL
-          </h1>
-          <p className="text-xs tracking-widest" style={{ color: "var(--color-muted)" }}>
-            System Logistyki Salonu
+          <p className="text-[10px] tracking-widest -mt-1" style={{ color: "var(--color-muted)" }}>
+            Grupa Plaza · Warszawa
           </p>
         </div>
 

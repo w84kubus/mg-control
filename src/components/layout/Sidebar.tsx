@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +10,9 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useNotificationsStore } from "@/store/notificationsStore";
+
+const B = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const MG_ICON = `${B}/logo-mg-icon.png`;
 
 interface NavItem {
   href: string;
@@ -84,24 +88,15 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
           }}
         >
           {isCollapsed ? (
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black text-white shrink-0"
-              style={{ background: "var(--color-accent)" }}
-            >
-              MG
-            </div>
+            <img src={MG_ICON} alt="MG" className="shrink-0" style={{ width: 26, height: 26, objectFit: "contain", filter: "var(--logo-invert, invert(1))" }} />
           ) : (
             <>
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black text-white shrink-0"
-                  style={{ background: "var(--color-accent)" }}
-                >
-                  MG
+                <img src={MG_ICON} alt="MG" className="shrink-0" style={{ width: 26, height: 26, objectFit: "contain", filter: "var(--logo-invert, invert(1))" }} />
+                <div className="flex items-baseline gap-1">
+                  <span className="font-black text-[13px] tracking-[1px] whitespace-nowrap" style={{ color: "var(--color-text)" }}>MG</span>
+                  <span className="font-bold text-[13px] tracking-[2px] whitespace-nowrap" style={{ color: "var(--color-accent)" }}>CONTROL</span>
                 </div>
-                <span className="font-black tracking-wider text-sm whitespace-nowrap" style={{ color: "var(--color-text)" }}>
-                  MG CONTROL
-                </span>
               </div>
               <button onClick={onClose} className="lg:hidden p-1 rounded-lg" style={{ color: "var(--color-muted)" }}>
                 <X size={16} />
