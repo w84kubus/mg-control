@@ -9,10 +9,7 @@ import {
   doc,
   updateDoc,
   addDoc,
-  setDoc,
   serverTimestamp,
-  getDocs,
-  where,
 } from "firebase/firestore";
 import type { Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -24,15 +21,12 @@ import {
   X,
   Phone,
   Package,
-  ChevronDown,
-  ChevronRight,
   CheckCircle,
   ScanLine,
   Trash2,
   Car,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import type { Vehicle } from "@/types";
 
 const BarcodeScannerInline = dynamic(
   () => import("@/components/scanner/BarcodeScannerInline"),
@@ -82,81 +76,6 @@ function formatDate(ts: Timestamp | null): string {
     month: "2-digit",
     year: "numeric",
   });
-}
-
-function DeliveryVehicles({ deliveryId }: { deliveryId: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function load() {
-    if (loaded) return;
-    setLoading(true);
-    try {
-      const snap = await getDocs(
-        query(collection(db, "vehicles"), where("deliveryId", "==", deliveryId))
-      );
-      setVehicles(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Vehicle)));
-      setLoaded(true);
-    } catch {
-      toast.error("Błąd ładowania pojazdów.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Auto-load count on mount
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function toggle() {
-    setExpanded((v) => !v);
-  }
-
-  return (
-    <div className="mt-3" style={{ borderTop: "1px solid var(--bg-border)" }}>
-      <button
-        onClick={toggle}
-        className="flex items-center gap-1.5 pt-2 text-xs font-medium hover:opacity-70 transition-opacity"
-        style={{ color: "var(--color-muted)" }}
-      >
-        {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        Pojazdy w dostawie
-        <span
-          className="ml-1 px-1.5 py-0.5 rounded-full text-xs"
-          style={{ background: "var(--bg-border2)", color: "var(--color-text)" }}
-        >
-          {loaded ? vehicles.length : "…"}
-        </span>
-      </button>
-      {expanded && (
-        <div className="mt-2 flex flex-col gap-1">
-          {loading && (
-            <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-              Ładowanie…
-            </p>
-          )}
-          {!loading && vehicles.length === 0 && (
-            <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-              Brak pojazdów powiązanych z tą dostawą.
-            </p>
-          )}
-          {vehicles.map((v) => (
-            <div
-              key={v.id}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-              style={{ background: "var(--bg-primary)", color: "var(--color-text)" }}
-            >
-              <span className="font-medium">{v.model}</span>
-              <span className="font-mono" style={{ color: "var(--color-muted)" }}>
-                {v.vin.slice(-7)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function DeliveriesPage() {
@@ -223,75 +142,13 @@ export default function DeliveriesPage() {
   }
 
   async function handleAccept(delivery: Delivery) {
-    if (!user) return;
     try {
-      // Auto-create vehicles from planned vehicles (awizacja)
-      const planned = delivery.plannedVehicles ?? [];
-      let createdCount = 0;
-
-      for (const pv of planned) {
-        if (!pv.vin.trim()) continue;
-        const upperVin = pv.vin.trim().toUpperCase();
-
-        // Check if vehicle with this VIN already exists
-        const existing = await getDocs(
-          query(collection(db, "vehicles"), where("vin", "==", upperVin))
-        );
-
-        if (existing.empty) {
-          // Create new vehicle
-          const ref = doc(collection(db, "vehicles"));
-          await setDoc(ref, {
-            id: ref.id,
-            vin: upperVin,
-            vinShort: upperVin.slice(-7),
-            brand: "MG",
-            model: pv.model,
-            color: "",
-            licensePlate: null,
-            vehicleType: "stock",
-            status: "new",
-            zoneId: null,
-            slotIndex: null,
-            assignedSalespersonUid: null,
-            assignedSalespersonName: null,
-            deliveryId: delivery.id,
-            arrivalDate: serverTimestamp(),
-            plannedDeliveryDate: null,
-            activeDamageReportIds: [],
-            activeServiceOrderIds: [],
-            hasDocument: false,
-            documentCount: 0,
-            notes: "",
-            createdBy: user.uid,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            updatedBy: user.uid,
-          });
-          createdCount++;
-        } else {
-          // Link existing vehicle to this delivery
-          const existingDoc = existing.docs[0];
-          await updateDoc(doc(db, "vehicles", existingDoc.id), {
-            deliveryId: delivery.id,
-            updatedAt: serverTimestamp(),
-            updatedBy: user.uid,
-          });
-          createdCount++;
-        }
-      }
-
       await updateDoc(doc(db, "deliveries", delivery.id), {
         status: "received",
         actualArrivalDate: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
-      if (createdCount > 0) {
-        toast.success(`Dostawa przyjęta. Dodano ${createdCount} pojazd(ów) do systemu.`);
-      } else {
-        toast.success("Dostawa przyjęta.");
-      }
+      toast.success("Dostawa przyjęta.");
     } catch {
       toast.error("Nie udało się przyjąć dostawy.");
     }
@@ -523,7 +380,6 @@ export default function DeliveriesPage() {
                 </div>
               )}
 
-              <DeliveryVehicles deliveryId={delivery.id} />
             </div>
           ))}
         </div>
