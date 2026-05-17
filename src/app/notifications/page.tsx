@@ -172,7 +172,7 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/dashboard")}
-            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70"
+            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70"
             style={{ color: "var(--color-muted)", background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
             title="Powrót do mapy"
           >
