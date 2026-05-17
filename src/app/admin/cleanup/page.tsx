@@ -50,8 +50,9 @@ export default function CleanupPage() {
       const v = await deleteCollection("vehicles");
       const d = await deleteCollection("deliveries");
       const s = await deleteCollection("serviceOrders");
-      addLog(`Gotowe! Usunięto ${v} pojazdów, ${d} dostaw, ${s} zleceń.`);
-      toast.success(`Wyczyszczono: ${v} pojazdów, ${d} dostaw, ${s} zleceń.`);
+      const dr = await deleteCollection("damageReports");
+      addLog(`Gotowe! Usunięto ${v} pojazdów, ${d} dostaw, ${s} zleceń, ${dr} szkód.`);
+      toast.success(`Wyczyszczono: ${v} pojazdów, ${d} dostaw, ${s} zleceń, ${dr} szkód.`);
       setDone(true);
     } catch (err) {
       addLog(`BŁĄD: ${err}`);
@@ -98,8 +99,9 @@ export default function CleanupPage() {
             </p>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
               Usunięte zostaną <strong style={{ color: "var(--color-text)" }}>wszystkie pojazdy</strong>,{" "}
-              <strong style={{ color: "var(--color-text)" }}>dostawy</strong> oraz{" "}
-              <strong style={{ color: "var(--color-text)" }}>zlecenia serwisowe</strong> z bazy danych.
+              <strong style={{ color: "var(--color-text)" }}>dostawy</strong>,{" "}
+              <strong style={{ color: "var(--color-text)" }}>zlecenia serwisowe</strong> oraz{" "}
+              <strong style={{ color: "var(--color-text)" }}>szkody</strong> z bazy danych.
               Użytkownicy, strefy i inne dane nie zostaną naruszone.
             </p>
           </div>
