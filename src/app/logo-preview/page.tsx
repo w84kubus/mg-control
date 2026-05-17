@@ -112,6 +112,32 @@ export default function LogoPreview() {
             <LoginFields />
           </LoginMock>
         </Card>
+        {/* ═══ E ═══ */}
+        <Card title="Wersja E: Znaczek MG + CONTROL" badge="Czyste" desc="Sam ośmiokąt MG (bez napisu Grupa Plaza) + obok tekst CONTROL. Najbardziej minimalistyczne i appowe podejście.">
+          <Label>Sidebar</Label>
+          <SidebarMock
+            expanded={
+              <SbLogo>
+                <img src={LOGO} alt="" style={{ width: 30, height: 30, objectFit: "contain", filter: "invert(1)" }} />
+                <span style={{ fontWeight: 900, fontSize: 14, letterSpacing: 3, color: "#fff", whiteSpace: "nowrap" }}>CONTROL</span>
+              </SbLogo>
+            }
+            collapsed={
+              <SbLogoC><img src={LOGO} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "invert(1)" }} /></SbLogoC>
+            }
+          />
+          <Label>Ekran logowania</Label>
+          <LoginMock>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <img src={LOGO} alt="" style={{ width: 48, height: 48, objectFit: "contain", filter: "invert(1)" }} />
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: 4, color: "#fff" }}>CONTROL</div>
+                <div style={{ fontSize: 9, color: "#71717a", letterSpacing: 1.5, marginTop: 1 }}>System Logistyki Salonu</div>
+              </div>
+            </div>
+            <LoginFields />
+          </LoginMock>
+        </Card>
       </div>
     </div>
   );
