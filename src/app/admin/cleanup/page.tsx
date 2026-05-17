@@ -49,8 +49,9 @@ export default function CleanupPage() {
     try {
       const v = await deleteCollection("vehicles");
       const d = await deleteCollection("deliveries");
-      addLog(`Gotowe! Usunięto ${v} pojazdów i ${d} dostaw.`);
-      toast.success(`Wyczyszczono: ${v} pojazdów, ${d} dostaw.`);
+      const s = await deleteCollection("serviceOrders");
+      addLog(`Gotowe! Usunięto ${v} pojazdów, ${d} dostaw, ${s} zleceń.`);
+      toast.success(`Wyczyszczono: ${v} pojazdów, ${d} dostaw, ${s} zleceń.`);
       setDone(true);
     } catch (err) {
       addLog(`BŁĄD: ${err}`);
@@ -96,9 +97,10 @@ export default function CleanupPage() {
               Operacja nieodwracalna
             </p>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-              Usunięte zostaną <strong style={{ color: "var(--color-text)" }}>wszystkie pojazdy</strong> oraz{" "}
-              <strong style={{ color: "var(--color-text)" }}>wszystkie dostawy</strong> z bazy danych.
-              Pozostali użytkownicy, strefy i inne dane nie zostaną naruszone.
+              Usunięte zostaną <strong style={{ color: "var(--color-text)" }}>wszystkie pojazdy</strong>,{" "}
+              <strong style={{ color: "var(--color-text)" }}>dostawy</strong> oraz{" "}
+              <strong style={{ color: "var(--color-text)" }}>zlecenia serwisowe</strong> z bazy danych.
+              Użytkownicy, strefy i inne dane nie zostaną naruszone.
             </p>
           </div>
         </div>
