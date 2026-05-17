@@ -26,8 +26,27 @@ import {
   ChevronDown,
   ChevronRight,
   CheckCircle,
+  ScanLine,
+  Trash2,
+  Car,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import type { Vehicle } from "@/types";
+
+const BarcodeScannerInline = dynamic(
+  () => import("@/components/scanner/BarcodeScannerInline"),
+  { ssr: false }
+);
+
+const MG_MODELS = [
+  "MG3", "MG4", "MG5", "MG7", "ZS", "ZS EV", "HS", "HS PHEV",
+  "EH5", "Cyberster", "MG S5", "MG S9",
+];
+
+interface PlannedVehicle {
+  vin: string;
+  model: string;
+}
 
 interface Delivery {
   id: string;
@@ -38,6 +57,7 @@ interface Delivery {
   driverPhone: string;
   notes: string;
   status: "in_transit" | "received";
+  plannedVehicles?: PlannedVehicle[];
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -152,6 +172,8 @@ export default function DeliveriesPage() {
   const [plannedArrivalDate, setPlannedArrivalDate] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [plannedVehicles, setPlannedVehicles] = useState<PlannedVehicle[]>([]);
+  const [scanningIndex, setScanningIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, "deliveries"), orderBy("plannedArrivalDate", "desc"));
@@ -179,7 +201,24 @@ export default function DeliveriesPage() {
     setVehicleCount(1);
     setPlannedArrivalDate("");
     setNotes("");
+    setPlannedVehicles([]);
+    setScanningIndex(null);
     setShowModal(true);
+  }
+
+  function addPlannedVehicle() {
+    setPlannedVehicles((prev) => [...prev, { vin: "", model: MG_MODELS[0] }]);
+  }
+
+  function updatePlannedVehicle(index: number, field: keyof PlannedVehicle, value: string) {
+    setPlannedVehicles((prev) =>
+      prev.map((v, i) => (i === index ? { ...v, [field]: value } : v))
+    );
+  }
+
+  function removePlannedVehicle(index: number) {
+    setPlannedVehicles((prev) => prev.filter((_, i) => i !== index));
+    if (scanningIndex === index) setScanningIndex(null);
   }
 
   async function handleAccept(delivery: Delivery) {
@@ -201,13 +240,19 @@ export default function DeliveriesPage() {
     setSaving(true);
     try {
       const dateTs = new Date(plannedArrivalDate);
+      const cleanVehicles = plannedVehicles
+        .filter((v) => v.vin.trim().length > 0)
+        .map((v) => ({ vin: v.vin.trim().toUpperCase(), model: v.model }));
+      const finalCount = cleanVehicles.length > 0 ? cleanVehicles.length : vehicleCount;
+
       await addDoc(collection(db, "deliveries"), {
         plannedArrivalDate: dateTs,
         actualArrivalDate: null,
-        vehicleCount,
+        vehicleCount: finalCount,
         driverName: driverName.trim(),
         driverPhone: driverPhone.trim(),
         notes: notes.trim(),
+        plannedVehicles: cleanVehicles,
         status: "in_transit",
         createdBy: user.uid,
         createdAt: serverTimestamp(),
@@ -389,6 +434,32 @@ export default function DeliveriesPage() {
                 </div>
               </div>
 
+              {/* Planned vehicles from notification */}
+              {delivery.plannedVehicles && delivery.plannedVehicles.length > 0 && (
+                <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--bg-border)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-muted)" }}>
+                    Pojazdy z awizacji
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {delivery.plannedVehicles.map((pv, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+                        style={{ background: "var(--bg-primary)", color: "var(--color-text)" }}
+                      >
+                        <span className="font-medium">{pv.model}</span>
+                        <span className="font-mono" style={{ color: "var(--color-muted)" }}>
+                          {pv.vin.length >= 7 ? pv.vin.slice(-7) : pv.vin}
+                        </span>
+                        <span className="text-[10px] font-mono ml-auto hidden sm:block" style={{ color: "var(--color-muted)" }}>
+                          {pv.vin}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <DeliveryVehicles deliveryId={delivery.id} />
             </div>
           ))}
@@ -402,7 +473,7 @@ export default function DeliveriesPage() {
           style={{ background: "rgba(0,0,0,0.75)" }}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
+            className="relative w-full max-w-md rounded-2xl p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
           >
             <div className="flex items-center justify-between">
@@ -446,19 +517,136 @@ export default function DeliveriesPage() {
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-                  Liczba pojazdów *
-                </label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={vehicleCount}
-                  onChange={(e) => setVehicleCount(parseInt(e.target.value) || 1)}
-                  style={inputStyle}
-                />
+              {/* Planned vehicles section */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                    Pojazdy w dostawie
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addPlannedVehicle}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
+                    style={{ background: "var(--color-accent)", color: "#fff" }}
+                  >
+                    <Plus size={11} /> Dodaj pojazd
+                  </button>
+                </div>
+
+                {plannedVehicles.length === 0 ? (
+                  <div
+                    className="rounded-xl px-4 py-3 flex flex-col items-center gap-1.5"
+                    style={{ background: "var(--bg-primary)", border: "1px dashed var(--bg-border2)" }}
+                  >
+                    <Car size={16} style={{ color: "var(--color-muted)" }} />
+                    <p className="text-[11px] text-center" style={{ color: "var(--color-muted)" }}>
+                      Dodaj pojazdy z awizacji — VIN + model.
+                      <br />Możesz też skanować kody kreskowe.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {plannedVehicles.map((pv, idx) => (
+                      <div key={idx} className="flex flex-col gap-1.5">
+                        <div
+                          className="flex items-center gap-1.5 rounded-xl p-2"
+                          style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}
+                        >
+                          <span
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={{ background: "var(--bg-border2)", color: "var(--color-muted)" }}
+                          >
+                            {idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={pv.vin}
+                            onChange={(e) => updatePlannedVehicle(idx, "vin", e.target.value)}
+                            placeholder="VIN"
+                            className="flex-1 min-w-0 px-2 py-1.5 rounded-lg text-xs outline-none font-mono"
+                            style={{
+                              background: "var(--bg-surface)",
+                              border: "1px solid var(--bg-border)",
+                              color: "var(--color-text)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                            }}
+                          />
+                          <select
+                            value={pv.model}
+                            onChange={(e) => updatePlannedVehicle(idx, "model", e.target.value)}
+                            className="px-2 py-1.5 rounded-lg text-xs outline-none shrink-0"
+                            style={{
+                              background: "var(--bg-surface)",
+                              border: "1px solid var(--bg-border)",
+                              color: "var(--color-text)",
+                              maxWidth: 90,
+                            }}
+                          >
+                            {MG_MODELS.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setScanningIndex(scanningIndex === idx ? null : idx)}
+                            className="p-1.5 rounded-lg shrink-0"
+                            style={{
+                              background: scanningIndex === idx ? "var(--color-accent)" : "var(--bg-surface)",
+                              color: scanningIndex === idx ? "#fff" : "var(--color-accent)",
+                              border: "1px solid var(--bg-border)",
+                            }}
+                          >
+                            <ScanLine size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removePlannedVehicle(idx)}
+                            className="p-1.5 rounded-lg shrink-0 hover:opacity-70"
+                            style={{ color: "var(--color-danger)" }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        {/* Inline scanner for this vehicle */}
+                        {scanningIndex === idx && (
+                          <BarcodeScannerInline
+                            onScan={(scanned) => {
+                              updatePlannedVehicle(idx, "vin", scanned);
+                              setScanningIndex(null);
+                            }}
+                            onClose={() => setScanningIndex(null)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {plannedVehicles.length > 0 && (
+                  <p className="text-[10px]" style={{ color: "var(--color-muted)" }}>
+                    {plannedVehicles.filter((v) => v.vin.trim()).length} pojazd(ów) z VIN
+                  </p>
+                )}
               </div>
+
+              {/* Vehicle count — only show if no planned vehicles */}
+              {plannedVehicles.length === 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                    Liczba pojazdów *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={vehicleCount}
+                    onChange={(e) => setVehicleCount(parseInt(e.target.value) || 1)}
+                    style={inputStyle}
+                  />
+                </div>
+              )}
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
