@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   collection,
   query,
@@ -12,7 +12,8 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useVehiclesStore } from "@/store/vehiclesStore";
 import {
@@ -22,9 +23,13 @@ import {
   getStageIndex,
 } from "@/lib/business/damageWorkflow";
 import { toast } from "react-toastify";
-import { AlertTriangle, Plus, X, ChevronRight, Shield } from "lucide-react";
+import {
+  AlertTriangle, Plus, X, ChevronRight, Shield,
+  Search, ImageIcon, FileText, Upload, ExternalLink,
+} from "lucide-react";
 import type { DamageReport, DamageStage, Vehicle } from "@/types";
-import { Search } from "lucide-react";
+
+type NotifType = DamageReport["stage"];
 
 const STAGE_COLORS: Record<DamageStage, string> = {
   to_report: "#64748b",
@@ -45,6 +50,114 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   width: "100%",
 };
+
+// ─── File Upload Section ──────────────────────────────────────────────────────
+
+interface FileUploadSectionProps {
+  label: string;
+  accept: string;
+  multiple?: boolean;
+  files: File[];
+  onChange: (files: File[]) => void;
+  hint?: string;
+}
+
+function FileUploadSection({ label, accept, multiple = false, files, onChange, hint }: FileUploadSectionProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const arr = Array.from(incoming);
+    onChange(multiple ? [...files, ...arr] : arr);
+  }
+
+  function removeFile(idx: number) {
+    onChange(files.filter((_, i) => i !== idx));
+  }
+
+  const isImage = accept.includes("image");
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+          {label}
+        </label>
+        {hint && (
+          <span className="text-[10px]" style={{ color: "var(--color-muted)", opacity: 0.6 }}>
+            {hint}
+          </span>
+        )}
+      </div>
+
+      {/* Drop zone */}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:opacity-70 transition-opacity"
+        style={{
+          background: "var(--bg-primary)",
+          border: "1px dashed var(--bg-border2)",
+          color: "var(--color-accent)",
+        }}
+      >
+        <Upload size={12} />
+        {files.length === 0
+          ? `Wybierz ${isImage ? "zdjęcia" : "plik"}…`
+          : multiple
+          ? `Dodaj więcej…`
+          : "Zmień plik…"}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        className="hidden"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+
+      {/* Selected files list */}
+      {files.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {files.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+              style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border)" }}
+            >
+              {isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={URL.createObjectURL(f)}
+                  alt={f.name}
+                  className="rounded shrink-0"
+                  style={{ width: 32, height: 32, objectFit: "cover" }}
+                />
+              ) : (
+                <FileText size={14} style={{ color: "var(--color-muted)", flexShrink: 0 }} />
+              )}
+              <span className="text-xs flex-1 truncate" style={{ color: "var(--color-text)" }}>
+                {f.name}
+              </span>
+              <span className="text-[10px] shrink-0" style={{ color: "var(--color-muted)" }}>
+                {(f.size / 1024).toFixed(0)} KB
+              </span>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="shrink-0 hover:opacity-70"
+                style={{ color: "var(--color-danger)" }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Stage Stepper ────────────────────────────────────────────────────────────
 
@@ -86,6 +199,72 @@ function StageStepper({ stage }: { stage: DamageStage }) {
   );
 }
 
+// ─── Attachment Viewer ────────────────────────────────────────────────────────
+
+interface AttachmentSection {
+  label: string;
+  urls: string[];
+  isPhoto?: boolean;
+}
+
+function AttachmentViewer({ sections }: { sections: AttachmentSection[] }) {
+  const all = sections.filter((s) => s.urls.length > 0);
+  if (all.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {all.map((sec) => (
+        <div key={sec.label} className="flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>
+            {sec.label}
+          </p>
+          {sec.isPhoto ? (
+            <div className="flex flex-wrap gap-1.5">
+              {sec.urls.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Zdjęcie ${i + 1}`}
+                    className="rounded-lg object-cover hover:opacity-80 transition-opacity"
+                    style={{ width: 64, height: 64 }}
+                  />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {sec.urls.map((url, i) => {
+                const name = decodeURIComponent(url.split("/").pop()?.split("?")[0] ?? `Plik ${i + 1}`);
+                const short = name.replace(/^\d+_/, "");
+                return (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:opacity-70 transition-opacity"
+                    style={{
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--bg-border2)",
+                      color: "var(--color-text)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <FileText size={12} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
+                    <span className="text-xs flex-1 truncate">{short}</span>
+                    <ExternalLink size={10} style={{ color: "var(--color-muted)", flexShrink: 0 }} />
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Damage Card ─────────────────────────────────────────────────────────────
 
 interface DamageCardProps {
@@ -105,119 +284,178 @@ function DamageCard({
   onToggleRepaired,
   onToggleSettled,
 }: DamageCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const stageColor = STAGE_COLORS[report.stage];
   const isAccepted = report.stage === "accepted_pending";
   const closeable = canClose(report.stage, report.physicallyRepaired, report.financiallySettled);
 
+  const hasAttachments =
+    (report.photoUrls?.length ?? 0) > 0 ||
+    (report.kosztorysUrls?.length ?? 0) > 0 ||
+    (report.listPrzewozowyUrls?.length ?? 0) > 0 ||
+    (report.wycenaUrls?.length ?? 0) > 0;
+
   return (
     <div
-      className="rounded-2xl p-4 flex flex-col gap-3"
+      className="rounded-2xl flex flex-col"
       style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="font-semibold text-sm" style={{ color: "var(--color-text)" }}>
-            {report.vehicleModel}
-          </p>
-          <p className="text-xs font-mono" style={{ color: "var(--color-muted)" }}>
-            {report.vehicleVin.slice(-7)}
-          </p>
+      {/* Main content */}
+      <div className="p-4 flex flex-col gap-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="font-semibold text-sm" style={{ color: "var(--color-text)" }}>
+              {report.vehicleModel}
+            </p>
+            <p className="text-xs font-mono" style={{ color: "var(--color-muted)" }}>
+              {report.vehicleVin.slice(-7)}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5">
+            <span
+              className="px-2 py-0.5 rounded-full text-xs font-semibold"
+              style={{
+                background: stageColor + "26",
+                color: stageColor,
+                border: `1px solid ${stageColor}40`,
+              }}
+            >
+              {getStageLabelPL(report.stage)}
+            </span>
+            <StageStepper stage={report.stage} />
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <span
-            className="px-2 py-0.5 rounded-full text-xs font-semibold"
-            style={{
-              background: stageColor + "26",
-              color: stageColor,
-              border: `1px solid ${stageColor}40`,
-            }}
+
+        {/* Location & description */}
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+            Lokalizacja:{" "}
+            <span style={{ color: "var(--color-text)" }}>{report.damageLocation || "—"}</span>
+          </p>
+          {report.description && (
+            <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+              {report.description}
+            </p>
+          )}
+        </div>
+
+        {/* Checkboxes for accepted_pending */}
+        {isAccepted && (
+          <div
+            className="flex flex-col gap-2 p-3 rounded-xl"
+            style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}
           >
-            {getStageLabelPL(report.stage)}
-          </span>
-          <StageStepper stage={report.stage} />
+            <CheckboxRow
+              checked={report.physicallyRepaired}
+              label="Naprawa fizyczna wykonana"
+              onChange={() => onToggleRepaired(report)}
+            />
+            <CheckboxRow
+              checked={report.financiallySettled}
+              label="Rozliczenie finansowe"
+              onChange={() => onToggleSettled(report)}
+            />
+          </div>
+        )}
+
+        {/* Actions row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {canAdvance && report.stage !== "accepted_pending" && (
+            <button
+              onClick={() => onAdvance(report)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 transition-opacity"
+              style={{
+                background: "var(--bg-primary)",
+                border: "1px solid var(--bg-border2)",
+                color: "var(--color-text)",
+              }}
+            >
+              Przesuń etap <ChevronRight size={12} />
+            </button>
+          )}
+          {canAdvance && report.stage === "accepted_pending" && !closeable && (
+            <button
+              onClick={() => onAdvance(report)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 transition-opacity"
+              style={{
+                background: "var(--bg-primary)",
+                border: "1px solid var(--bg-border2)",
+                color: "var(--color-text)",
+              }}
+            >
+              Przesuń etap <ChevronRight size={12} />
+            </button>
+          )}
+          {closeable && (
+            <button
+              onClick={() => onClose(report)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 transition-opacity"
+              style={{
+                background: "#22c55e26",
+                border: "1px solid #22c55e40",
+                color: "#22c55e",
+              }}
+            >
+              <Shield size={12} /> Zamknij szkodę
+            </button>
+          )}
+
+          {/* Attachments toggle */}
+          {hasAttachments && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs hover:opacity-80 transition-opacity ml-auto"
+              style={{
+                background: "var(--bg-primary)",
+                border: "1px solid var(--bg-border2)",
+                color: "var(--color-muted)",
+              }}
+            >
+              <ImageIcon size={11} />
+              Załączniki
+              {(report.photoUrls?.length ?? 0) + (report.kosztorysUrls?.length ?? 0) +
+               (report.listPrzewozowyUrls?.length ?? 0) + (report.wycenaUrls?.length ?? 0) > 0 && (
+                <span
+                  className="px-1 rounded text-[9px] font-bold"
+                  style={{ background: "var(--color-accent)", color: "#fff" }}
+                >
+                  {(report.photoUrls?.length ?? 0) + (report.kosztorysUrls?.length ?? 0) +
+                   (report.listPrzewozowyUrls?.length ?? 0) + (report.wycenaUrls?.length ?? 0)}
+                </span>
+              )}
+            </button>
+          )}
+
+          <p
+            className="text-xs shrink-0"
+            style={{ color: "var(--color-muted)", marginLeft: hasAttachments ? undefined : "auto" }}
+          >
+            {report.createdAt?.toDate
+              ? report.createdAt.toDate().toLocaleDateString("pl-PL")
+              : "—"}
+          </p>
         </div>
       </div>
 
-      {/* Location & description */}
-      <div className="flex flex-col gap-1">
-        <p className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-          Lokalizacja:{" "}
-          <span style={{ color: "var(--color-text)" }}>{report.damageLocation || "—"}</span>
-        </p>
-        {report.description && (
-          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-            {report.description}
-          </p>
-        )}
-      </div>
-
-      {/* Checkboxes for accepted_pending */}
-      {isAccepted && (
+      {/* Attachments panel */}
+      {expanded && hasAttachments && (
         <div
-          className="flex flex-col gap-2 p-3 rounded-xl"
-          style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}
+          className="px-4 pb-4 pt-0"
+          style={{ borderTop: "1px solid var(--bg-border)" }}
         >
-          <CheckboxRow
-            checked={report.physicallyRepaired}
-            label="Naprawa fizyczna wykonana"
-            onChange={() => onToggleRepaired(report)}
-          />
-          <CheckboxRow
-            checked={report.financiallySettled}
-            label="Rozliczenie finansowe"
-            onChange={() => onToggleSettled(report)}
-          />
+          <div className="pt-3">
+            <AttachmentViewer
+              sections={[
+                { label: "Zdjęcia", urls: report.photoUrls ?? [], isPhoto: true },
+                { label: "Kosztorys BL", urls: report.kosztorysUrls ?? [] },
+                { label: "List przewozowy", urls: report.listPrzewozowyUrls ?? [] },
+                { label: "Wycena", urls: report.wycenaUrls ?? [] },
+              ]}
+            />
+          </div>
         </div>
       )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {canAdvance && report.stage !== "accepted_pending" && (
-          <button
-            onClick={() => onAdvance(report)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 transition-opacity"
-            style={{
-              background: "var(--bg-primary)",
-              border: "1px solid var(--bg-border2)",
-              color: "var(--color-text)",
-            }}
-          >
-            Przesuń etap <ChevronRight size={12} />
-          </button>
-        )}
-        {canAdvance && report.stage === "accepted_pending" && !closeable && (
-          <button
-            onClick={() => onAdvance(report)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 transition-opacity"
-            style={{
-              background: "var(--bg-primary)",
-              border: "1px solid var(--bg-border2)",
-              color: "var(--color-text)",
-            }}
-          >
-            Przesuń etap <ChevronRight size={12} />
-          </button>
-        )}
-        {closeable && (
-          <button
-            onClick={() => onClose(report)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 transition-opacity"
-            style={{
-              background: "#22c55e26",
-              border: "1px solid #22c55e40",
-              color: "#22c55e",
-            }}
-          >
-            <Shield size={12} /> Zamknij szkodę
-          </button>
-        )}
-        <p className="text-xs ml-auto" style={{ color: "var(--color-muted)" }}>
-          {report.createdAt?.toDate
-            ? report.createdAt.toDate().toLocaleDateString("pl-PL")
-            : "—"}
-        </p>
-      </div>
     </div>
   );
 }
@@ -272,7 +510,14 @@ export default function DamageReportsPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [damageLocation, setDamageLocation] = useState("");
   const [description, setDescription] = useState("");
+  // Files
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [kosztorysFiles, setKosztorysFiles] = useState<File[]>([]);
+  const [listPrzewozowyFiles, setListPrzewozowyFiles] = useState<File[]>([]);
+  const [wycenaFiles, setWycenaFiles] = useState<File[]>([]);
+
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
 
   useEffect(() => {
     const unsub = subscribe();
@@ -365,24 +610,42 @@ export default function DamageReportsPage() {
     }
   }
 
+  // ── Upload helpers ──────────────────────────────────────────────────────────
+
+  async function uploadCategory(docId: string, category: string, files: File[]): Promise<string[]> {
+    if (!files.length) return [];
+    return Promise.all(
+      files.map(async (file) => {
+        const path = `damageReports/${docId}/${category}/${Date.now()}_${file.name}`;
+        const sRef = storageRef(storage, path);
+        await uploadBytes(sRef, file);
+        return getDownloadURL(sRef);
+      })
+    );
+  }
+
   const openModal = () => {
     setVehicleSearch("");
     setSelectedVehicle(null);
     setDamageLocation("");
     setDescription("");
+    setPhotoFiles([]);
+    setKosztorysFiles([]);
+    setListPrzewozowyFiles([]);
+    setWycenaFiles([]);
+    setUploadProgress("");
     setShowModal(true);
   };
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedVehicle) {
-      toast.error("Wybierz pojazd.");
-      return;
-    }
+    if (!selectedVehicle) { toast.error("Wybierz pojazd."); return; }
     if (!user) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, "damageReports"), {
+      // 1. Create document
+      setUploadProgress("Tworzenie zgłoszenia…");
+      const docRef = await addDoc(collection(db, "damageReports"), {
         vehicleId: selectedVehicle.id,
         vehicleVin: selectedVehicle.vin,
         vehicleModel: selectedVehicle.model,
@@ -391,7 +654,9 @@ export default function DamageReportsPage() {
         damageLocation: damageLocation.trim(),
         description: description.trim(),
         photoUrls: [],
-        documentUrls: [],
+        kosztorysUrls: [],
+        listPrzewozowyUrls: [],
+        wycenaUrls: [],
         physicallyRepaired: false,
         financiallySettled: false,
         closedAt: null,
@@ -400,17 +665,42 @@ export default function DamageReportsPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // 2. Upload files in parallel per category
+      const totalFiles = photoFiles.length + kosztorysFiles.length + listPrzewozowyFiles.length + wycenaFiles.length;
+      if (totalFiles > 0) {
+        setUploadProgress(`Przesyłanie ${totalFiles} pliku(-ów)…`);
+        const [photoUrls, kosztorysUrls, listPrzewozowyUrls, wycenaUrls] = await Promise.all([
+          uploadCategory(docRef.id, "photos", photoFiles),
+          uploadCategory(docRef.id, "kosztorys", kosztorysFiles),
+          uploadCategory(docRef.id, "list_przewozowy", listPrzewozowyFiles),
+          uploadCategory(docRef.id, "wycena", wycenaFiles),
+        ]);
+
+        // 3. Update document with URLs
+        setUploadProgress("Zapisywanie linków…");
+        await updateDoc(docRef, {
+          photoUrls,
+          kosztorysUrls,
+          listPrzewozowyUrls,
+          wycenaUrls,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
       toast.success("Zgłoszenie szkody dodane.");
       setShowModal(false);
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error("Nie udało się dodać zgłoszenia.");
     } finally {
       setSaving(false);
+      setUploadProgress("");
     }
   }
 
   const canAdvance = user?.role === "logistics";
-  const canCreate = user?.role === "logistics" || user?.role === "advisor";
+  const canCreate = user?.role === "logistics" || user?.role === "advisor" || user?.role === "salesperson";
 
   const stageCounts = ALL_STAGES.reduce<Record<DamageStage, number>>(
     (acc, s) => {
@@ -472,8 +762,7 @@ export default function DamageReportsPage() {
             onClick={() => setStageFilter(s)}
             className="px-3 py-1 rounded-full text-xs font-medium transition-opacity"
             style={{
-              background:
-                stageFilter === s ? STAGE_COLORS[s] : "var(--bg-surface)",
+              background: stageFilter === s ? STAGE_COLORS[s] : "var(--bg-surface)",
               color: stageFilter === s ? "#fff" : "var(--color-muted)",
               border: "1px solid var(--bg-border)",
             }}
@@ -488,10 +777,7 @@ export default function DamageReportsPage() {
         <div className="flex justify-center py-16">
           <div
             className="w-6 h-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-accent)",
-              borderTopColor: "transparent",
-            }}
+            style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }}
           />
         </div>
       ) : filtered.length === 0 ? (
@@ -526,7 +812,7 @@ export default function DamageReportsPage() {
           style={{ background: "rgba(0,0,0,0.75)" }}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
+            className="relative w-full max-w-md rounded-2xl p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}
           >
             <div className="flex items-center justify-between">
@@ -559,18 +845,11 @@ export default function DamageReportsPage() {
                   >
                     <span>
                       {selectedVehicle.model}{" "}
-                      <span
-                        className="font-mono text-xs"
-                        style={{ color: "var(--color-muted)" }}
-                      >
+                      <span className="font-mono text-xs" style={{ color: "var(--color-muted)" }}>
                         {selectedVehicle.vin.slice(-7)}
                       </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVehicle(null)}
-                      style={{ color: "var(--color-muted)" }}
-                    >
+                    <button type="button" onClick={() => setSelectedVehicle(null)} style={{ color: "var(--color-muted)" }}>
                       <X size={12} />
                     </button>
                   </div>
@@ -596,15 +875,12 @@ export default function DamageReportsPage() {
                         style={{
                           background: "var(--bg-primary)",
                           border: "1px solid var(--bg-border2)",
-                          maxHeight: "12rem",
+                          maxHeight: "10rem",
                           overflowY: "auto",
                         }}
                       >
                         {modalVehicles.length === 0 ? (
-                          <p
-                            className="px-3 py-2 text-xs"
-                            style={{ color: "var(--color-muted)" }}
-                          >
+                          <p className="px-3 py-2 text-xs" style={{ color: "var(--color-muted)" }}>
                             Brak wyników
                           </p>
                         ) : (
@@ -612,21 +888,12 @@ export default function DamageReportsPage() {
                             <button
                               key={v.id}
                               type="button"
-                              onClick={() => {
-                                setSelectedVehicle(v);
-                                setVehicleSearch("");
-                              }}
+                              onClick={() => { setSelectedVehicle(v); setVehicleSearch(""); }}
                               className="w-full text-left px-3 py-2 text-xs hover:opacity-70"
-                              style={{
-                                borderBottom: "1px solid var(--bg-border)",
-                                color: "var(--color-text)",
-                              }}
+                              style={{ borderBottom: "1px solid var(--bg-border)", color: "var(--color-text)" }}
                             >
                               {v.model}{" "}
-                              <span
-                                className="font-mono"
-                                style={{ color: "var(--color-muted)" }}
-                              >
+                              <span className="font-mono" style={{ color: "var(--color-muted)" }}>
                                 {v.vin.slice(-7)}
                               </span>
                             </button>
@@ -667,6 +934,53 @@ export default function DamageReportsPage() {
                 />
               </div>
 
+              {/* ── Attachments ── */}
+              <div
+                className="flex flex-col gap-3 p-3 rounded-xl"
+                style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)" }}
+              >
+                <div className="flex items-center gap-2">
+                  <ImageIcon size={13} style={{ color: "var(--color-accent)" }} />
+                  <p className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                    Załączniki
+                  </p>
+                  <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>opcjonalne</span>
+                </div>
+
+                <FileUploadSection
+                  label="Zdjęcia"
+                  accept="image/*"
+                  multiple
+                  files={photoFiles}
+                  onChange={setPhotoFiles}
+                  hint="JPG, PNG, HEIC"
+                />
+                <FileUploadSection
+                  label="Kosztorys BL"
+                  accept="image/*,application/pdf"
+                  multiple
+                  files={kosztorysFiles}
+                  onChange={setKosztorysFiles}
+                  hint="PDF lub zdjęcie"
+                />
+                <FileUploadSection
+                  label="List przewozowy"
+                  accept="image/*,application/pdf"
+                  multiple={false}
+                  files={listPrzewozowyFiles}
+                  onChange={setListPrzewozowyFiles}
+                  hint="skan PDF lub zdjęcie"
+                />
+                <FileUploadSection
+                  label="Wycena"
+                  accept="image/*,application/pdf"
+                  multiple
+                  files={wycenaFiles}
+                  onChange={setWycenaFiles}
+                  hint="PDF lub zdjęcie"
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -683,10 +997,20 @@ export default function DamageReportsPage() {
                 <button
                   type="submit"
                   disabled={saving || !selectedVehicle || !damageLocation.trim()}
-                  className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                  className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                   style={{ background: "var(--color-accent)", color: "#fff" }}
                 >
-                  {saving ? "Zapisywanie…" : "Dodaj zgłoszenie"}
+                  {saving ? (
+                    <>
+                      <div
+                        className="w-3.5 h-3.5 border-2 rounded-full animate-spin shrink-0"
+                        style={{ borderColor: "#ffffff60", borderTopColor: "#fff" }}
+                      />
+                      {uploadProgress || "Zapisywanie…"}
+                    </>
+                  ) : (
+                    "Dodaj zgłoszenie"
+                  )}
                 </button>
               </div>
             </form>

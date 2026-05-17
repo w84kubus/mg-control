@@ -191,7 +191,11 @@ export interface DamageReport {
   damageLocation: string;
   description: string;
   photoUrls: string[];
-  documentUrls: string[];
+  kosztorysUrls: string[];
+  listPrzewozowyUrls: string[];
+  wycenaUrls: string[];
+  /** @deprecated use specific url arrays */
+  documentUrls?: string[];
   physicallyRepaired: boolean;
   financiallySettled: boolean;
   closedAt: Timestamp | null;
