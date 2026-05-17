@@ -36,6 +36,7 @@ const TYPE_LABELS: Record<ServiceOrderType, string> = {
 };
 
 const STATUS_LABELS: Record<ServiceOrderStatus, string> = {
+  do_zlecenia: "Do zlecenia",
   ordered: "Zlecone",
   in_progress: "W toku",
   partial: "Częściowo",
@@ -43,17 +44,24 @@ const STATUS_LABELS: Record<ServiceOrderStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ServiceOrderStatus, string> = {
+  do_zlecenia: "#f97316",
   ordered: "#3b82f6",
   in_progress: "#eab308",
   partial: "#a78bfa",
   ready: "#22c55e",
 };
 
-const STATUS_ORDER: ServiceOrderStatus[] = ["ordered", "in_progress", "partial", "ready"];
+// Cycle used for filter tabs (all statuses)
+const ALL_STATUSES: ServiceOrderStatus[] = ["do_zlecenia", "ordered", "in_progress", "partial", "ready"];
+
+// Cycle used when logistics clicks the status badge
+const STATUS_CYCLE: ServiceOrderStatus[] = ["ordered", "in_progress", "partial", "ready"];
 
 function cycleStatus(current: ServiceOrderStatus): ServiceOrderStatus {
-  const idx = STATUS_ORDER.indexOf(current);
-  return STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+  // "Do zlecenia" always advances to "Zlecone" (logistics confirms DMS entry)
+  if (current === "do_zlecenia") return "ordered";
+  const idx = STATUS_CYCLE.indexOf(current);
+  return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
 }
 
 /** Get display summary for channels (new) or legacy type field */
@@ -356,7 +364,7 @@ export default function ServiceOrdersPage() {
         vehicleVin: selectedVehicle.vin,
         vehicleModel: selectedVehicle.model,
         channels,
-        status: "ordered" as ServiceOrderStatus,
+        status: (user.role === "logistics" ? "ordered" : "do_zlecenia") as ServiceOrderStatus,
         customerName: customerName.trim(),
         customerCode: customerCode.trim(),
         orderedBy: user.uid,
@@ -414,7 +422,7 @@ export default function ServiceOrdersPage() {
             Zlecenia serwisowe
           </h1>
         </div>
-        {user?.role === "logistics" && (
+        {(user?.role === "logistics" || user?.role === "salesperson") && (
           <button
             onClick={openModal}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
@@ -429,7 +437,7 @@ export default function ServiceOrdersPage() {
       <div className="flex flex-col gap-3">
         {/* Status chips */}
         <div className="flex flex-wrap gap-2">
-          {(["all", ...STATUS_ORDER] as (ServiceOrderStatus | "all")[]).map((s) => (
+          {(["all", ...ALL_STATUSES] as (ServiceOrderStatus | "all")[]).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -543,7 +551,11 @@ export default function ServiceOrdersPage() {
                           {user?.role === "logistics" ? (
                             <button
                               onClick={() => handleStatusClick(order)}
-                              title="Kliknij aby zmienić status"
+                              title={
+                                order.status === "do_zlecenia"
+                                  ? "Kliknij po wpisaniu do DMS i zabraniu na serwis → zmieni na Zlecone"
+                                  : "Kliknij aby zmienić status"
+                              }
                               className="px-2 py-0.5 rounded-full text-xs font-semibold hover:opacity-75 transition-opacity"
                               style={{
                                 background: STATUS_COLORS[order.status] + "26",

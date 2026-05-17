@@ -75,7 +75,7 @@ export interface Vehicle {
 // ─── Service Orders ──────────────────────────────────────────────────────────
 
 export type ServiceOrderType = "pdi" | "wash" | "ceramic" | "accessory" | "other";
-export type ServiceOrderStatus = "ordered" | "in_progress" | "partial" | "ready";
+export type ServiceOrderStatus = "do_zlecenia" | "ordered" | "in_progress" | "partial" | "ready";
 
 export interface ServiceOrderChannel {
   name: string;
