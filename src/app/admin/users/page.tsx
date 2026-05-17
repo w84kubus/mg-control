@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 const ROLE_LABELS: Record<UserRole, string> = {
   logistics: "Logistyk",
   salesperson: "Handlowiec",
-  mechanic: "Serwisant",
+  advisor: "Doradca Serwisu",
   detailer: "Pracownik Myjni",
 };
 

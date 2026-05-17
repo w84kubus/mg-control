@@ -20,7 +20,7 @@ describe("validateDrop", () => {
     it("rejects any role from blocked zone", () => {
       const zone = makeZone({ type: "blocked", capacity: 0 });
       expect(validateDrop(zone, "logistics").allowed).toBe(false);
-      expect(validateDrop(zone, "mechanic").allowed).toBe(false);
+      expect(validateDrop(zone, "advisor").allowed).toBe(false);
       expect(validateDrop(zone, "salesperson").allowed).toBe(false);
     });
 
@@ -32,14 +32,14 @@ describe("validateDrop", () => {
     });
   });
 
-  describe("mechanic forbidden zones", () => {
+  describe("advisor forbidden zones", () => {
     const forbiddenIds = ["salon", "wydawka", "myjnia_salon", "garaz"];
 
     forbiddenIds.forEach((id) => {
-      it(`rejects mechanic from ${id}`, () => {
+      it(`rejects advisor from ${id}`, () => {
         const zone = makeZone({ id, type: "strict", capacity: 10 });
-        expect(validateDrop(zone, "mechanic").allowed).toBe(false);
-        expect(validateDrop(zone, "mechanic").message).toBe(
+        expect(validateDrop(zone, "advisor").allowed).toBe(false);
+        expect(validateDrop(zone, "advisor").message).toBe(
           "Nie masz uprawnień do przemieszczania aut do tej strefy."
         );
       });
@@ -80,21 +80,21 @@ describe("validateDrop", () => {
   });
 
   describe("edge cases", () => {
-    it("allows mechanic to flexible non-forbidden zone", () => {
+    it("allows advisor to flexible non-forbidden zone", () => {
       const zone = makeZone({ id: "strefa_2", type: "flexible", capacity: null });
-      expect(validateDrop(zone, "mechanic").allowed).toBe(true);
+      expect(validateDrop(zone, "advisor").allowed).toBe(true);
     });
 
-    it("allows mechanic to strict non-forbidden zone with space", () => {
+    it("allows advisor to strict non-forbidden zone with space", () => {
       const zone = makeZone({ id: "hala_1", type: "strict", capacity: 4, currentCount: 2 });
-      expect(validateDrop(zone, "mechanic").allowed).toBe(true);
+      expect(validateDrop(zone, "advisor").allowed).toBe(true);
     });
   });
 });
 
 describe("canUserMoveVehicle", () => {
   it("allows logistics", () => expect(canUserMoveVehicle("logistics")).toBe(true));
-  it("allows mechanic", () => expect(canUserMoveVehicle("mechanic")).toBe(true));
+  it("allows advisor", () => expect(canUserMoveVehicle("advisor")).toBe(true));
   it("denies salesperson", () => expect(canUserMoveVehicle("salesperson")).toBe(false));
   it("denies detailer", () => expect(canUserMoveVehicle("detailer")).toBe(false));
 });
@@ -103,7 +103,7 @@ describe("canChangeQueueOrder", () => {
   it("allows only logistics", () => {
     expect(canChangeQueueOrder("logistics")).toBe(true);
     expect(canChangeQueueOrder("salesperson")).toBe(false);
-    expect(canChangeQueueOrder("mechanic")).toBe(false);
+    expect(canChangeQueueOrder("advisor")).toBe(false);
     expect(canChangeQueueOrder("detailer")).toBe(false);
   });
 });

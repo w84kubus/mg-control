@@ -56,7 +56,7 @@ function cycleStatus(current: ServiceOrderStatus): ServiceOrderStatus {
   return STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
 }
 
-interface Mechanic {
+interface Advisor {
   uid: string;
   displayName: string;
 }
@@ -82,14 +82,14 @@ export default function ServiceOrdersPage() {
   const [typeFilter, setTypeFilter] = useState<ServiceOrderType | "all">("all");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [mechanics, setMechanics] = useState<Mechanic[]>([]);
+  const [advisors, setAdvisors] = useState<Advisor[]>([]);
 
   // Create modal state
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [orderType, setOrderType] = useState<ServiceOrderType>("pdi");
   const [description, setDescription] = useState("");
-  const [mechanicUid, setMechanicUid] = useState<string>("");
+  const [advisorUid, setAdvisorUid] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -113,13 +113,13 @@ export default function ServiceOrdersPage() {
     return unsub;
   }, []);
 
-  const loadMechanics = useCallback(async () => {
-    if (mechanics.length > 0) return;
+  const loadAdvisors = useCallback(async () => {
+    if (advisors.length > 0) return;
     try {
       const snap = await getDocs(
-        query(collection(db, "users"), where("role", "==", "mechanic"))
+        query(collection(db, "users"), where("role", "==", "advisor"))
       );
-      setMechanics(
+      setAdvisors(
         snap.docs.map((d) => ({
           uid: d.id,
           displayName: (d.data() as AppUser).displayName,
@@ -128,15 +128,15 @@ export default function ServiceOrdersPage() {
     } catch {
       // silently ignore
     }
-  }, [mechanics.length]);
+  }, [advisors.length]);
 
   const openModal = () => {
-    loadMechanics();
+    loadAdvisors();
     setVehicleSearch("");
     setSelectedVehicle(null);
     setOrderType("pdi");
     setDescription("");
-    setMechanicUid("");
+    setAdvisorUid("");
     setShowModal(true);
   };
 
@@ -161,7 +161,7 @@ export default function ServiceOrdersPage() {
     if (!user) return;
     setSaving(true);
     try {
-      const mechanic = mechanics.find((m) => m.uid === mechanicUid) ?? null;
+      const advisor = advisors.find((a) => a.uid === advisorUid) ?? null;
       await addDoc(collection(db, "serviceOrders"), {
         vehicleId: selectedVehicle.id,
         vehicleVin: selectedVehicle.vin,
@@ -171,8 +171,8 @@ export default function ServiceOrdersPage() {
         description: description.trim(),
         orderedBy: user.uid,
         orderedByName: user.displayName,
-        assignedMechanicUid: mechanic?.uid ?? null,
-        assignedMechanicName: mechanic?.displayName ?? null,
+        assignedAdvisorUid: advisor?.uid ?? null,
+        assignedAdvisorName: advisor?.displayName ?? null,
         plannedDeliveryDate: null,
         completionDate: null,
         createdAt: serverTimestamp(),
@@ -220,13 +220,15 @@ export default function ServiceOrdersPage() {
             Zlecenia serwisowe
           </h1>
         </div>
-        <button
-          onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: "var(--color-accent)", color: "#fff" }}
-        >
-          <Plus size={14} /> Nowe zlecenie
-        </button>
+        {user?.role === "logistics" && (
+          <button
+            onClick={openModal}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{ background: "var(--color-accent)", color: "#fff" }}
+          >
+            <Plus size={14} /> Nowe zlecenie
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -316,7 +318,7 @@ export default function ServiceOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                  {["Pojazd", "Typ", "Status", "Mechanik", "Data"].map((h) => (
+                  {["Pojazd", "Typ", "Status", "Doradca", "Data"].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
@@ -345,21 +347,34 @@ export default function ServiceOrdersPage() {
                       {TYPE_LABELS[order.type]}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleStatusClick(order)}
-                        title="Kliknij aby zmienić status"
-                        className="px-2 py-0.5 rounded-full text-xs font-semibold hover:opacity-75 transition-opacity"
-                        style={{
-                          background: STATUS_COLORS[order.status] + "26",
-                          color: STATUS_COLORS[order.status],
-                          border: `1px solid ${STATUS_COLORS[order.status]}40`,
-                        }}
-                      >
-                        {STATUS_LABELS[order.status]}
-                      </button>
+                      {user?.role === "logistics" ? (
+                        <button
+                          onClick={() => handleStatusClick(order)}
+                          title="Kliknij aby zmienić status"
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold hover:opacity-75 transition-opacity"
+                          style={{
+                            background: STATUS_COLORS[order.status] + "26",
+                            color: STATUS_COLORS[order.status],
+                            border: `1px solid ${STATUS_COLORS[order.status]}40`,
+                          }}
+                        >
+                          {STATUS_LABELS[order.status]}
+                        </button>
+                      ) : (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          style={{
+                            background: STATUS_COLORS[order.status] + "26",
+                            color: STATUS_COLORS[order.status],
+                            border: `1px solid ${STATUS_COLORS[order.status]}40`,
+                          }}
+                        >
+                          {STATUS_LABELS[order.status]}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
-                      {order.assignedMechanicName ?? "—"}
+                      {order.assignedAdvisorName ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
                       {order.createdAt?.toDate
@@ -534,23 +549,23 @@ export default function ServiceOrdersPage() {
                 />
               </div>
 
-              {/* Mechanic */}
+              {/* Advisor */}
               <div className="flex flex-col gap-1.5">
                 <label
                   className="text-xs font-medium"
                   style={{ color: "var(--color-muted)" }}
                 >
-                  Mechanik (opcjonalnie)
+                  Doradca serwisu (opcjonalnie)
                 </label>
                 <select
-                  value={mechanicUid}
-                  onChange={(e) => setMechanicUid(e.target.value)}
+                  value={advisorUid}
+                  onChange={(e) => setAdvisorUid(e.target.value)}
                   style={inputStyle}
                 >
                   <option value="">— Brak przypisania —</option>
-                  {mechanics.map((m) => (
-                    <option key={m.uid} value={m.uid}>
-                      {m.displayName}
+                  {advisors.map((a) => (
+                    <option key={a.uid} value={a.uid}>
+                      {a.displayName}
                     </option>
                   ))}
                 </select>

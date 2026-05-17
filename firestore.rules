@@ -10,9 +10,9 @@ service cloud.firestore {
 
     function isLogistics() { return isAuth() && role() == "logistics"; }
     function isSales()     { return isAuth() && role() == "salesperson"; }
-    function isMechanic()  { return isAuth() && role() == "mechanic"; }
+    function isAdvisor()   { return isAuth() && role() == "advisor"; }
     function isDetailer()  { return isAuth() && role() == "detailer"; }
-    function isStaff()     { return isAuth() && role() in ["logistics","salesperson","mechanic","detailer"]; }
+    function isStaff()     { return isAuth() && role() in ["logistics","salesperson","advisor","detailer"]; }
 
     function changedOnly(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
@@ -40,9 +40,9 @@ service cloud.firestore {
     // ─── vehicles ──────────────────────────────────────────────────────────
     match /vehicles/{vehicleId} {
       allow read:   if isStaff();
-      allow create: if isLogistics() || isSales();
-      allow update: if isLogistics() || isSales()
-                    || (isMechanic() && changedOnly([
+      allow create: if isLogistics();
+      allow update: if isLogistics()
+                    || (isAdvisor() && changedOnly([
                          "status","updatedAt","updatedBy","activeServiceOrderIds"
                        ]));
       allow delete: if isLogistics();
@@ -57,34 +57,33 @@ service cloud.firestore {
     // ─── serviceOrders ─────────────────────────────────────────────────────
     match /serviceOrders/{orderId} {
       allow read:   if isStaff();
-      allow create: if isLogistics() || isSales() || isMechanic();
-      allow update: if isLogistics() || isMechanic()
-                    || (isSales() && changedOnly(["status","updatedAt"]));
+      allow create: if isLogistics();
+      allow update: if isLogistics();
       allow delete: if isLogistics();
     }
 
     // ─── damageReports ─────────────────────────────────────────────────────
     match /damageReports/{reportId} {
       allow read:   if isStaff();
-      allow create: if isStaff();
-      allow update: if isLogistics() || isMechanic();
+      allow create: if isLogistics() || isAdvisor();
+      allow update: if isLogistics() || isAdvisor();
       allow delete: if isLogistics();
     }
 
     // ─── washQueue (legacy) ──────────────────────────────────────────────
     match /washQueue/{itemId} {
       allow read:   if isStaff();
-      allow create: if isLogistics() || isSales();
-      allow update: if isLogistics() || isDetailer() || isMechanic();
+      allow create: if isLogistics();
+      allow update: if isLogistics();
       allow delete: if isLogistics();
     }
 
     // ─── washWeek (weekly wash planner) ───────────────────────────────────
     match /washWeek/{itemId} {
       allow read:   if isStaff();
-      allow create: if isStaff();
-      allow update: if isStaff();
-      allow delete: if isLogistics() || isSales();
+      allow create: if isLogistics();
+      allow update: if isLogistics();
+      allow delete: if isLogistics();
     }
 
     // ─── documents ─────────────────────────────────────────────────────────

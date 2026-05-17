@@ -268,7 +268,7 @@ function TabDane({ vehicle }: { vehicle: Vehicle }) {
       </div>
 
       {/* Edit / Save */}
-      {(user?.role === "logistics" || user?.role === "salesperson") && vehicle.status !== "delivered" ? (
+      {user?.role === "logistics" && vehicle.status !== "delivered" ? (
         <div className="flex gap-2">
           {editing ? (
             <>
@@ -441,8 +441,8 @@ function TabZlecenia({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehic
         description: description.trim(),
         orderedBy: user.uid,
         orderedByName: user.displayName ?? "Nieznany",
-        assignedMechanicUid: null,
-        assignedMechanicName: null,
+        assignedAdvisorUid: null,
+        assignedAdvisorName: null,
         plannedDeliveryDate: null,
         completionDate: null,
         createdAt: serverTimestamp(),
@@ -460,7 +460,7 @@ function TabZlecenia({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehic
 
   return (
     <div className="flex flex-col gap-3">
-      {(user?.role === "logistics" || user?.role === "mechanic") && !showForm && (
+      {user?.role === "logistics" && !showForm && (
         <button onClick={() => setShowForm(true)}
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold w-full justify-center"
           style={{ background: "var(--bg-primary)", border: "1px dashed var(--bg-border2)", color: "var(--color-accent)" }}>
@@ -514,9 +514,9 @@ function TabZlecenia({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehic
               </span>
             </div>
             <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{o.description}</p>
-            {o.assignedMechanicName && (
+            {o.assignedAdvisorName && (
               <p className="text-[10px] mt-1" style={{ color: "var(--color-muted2)" }}>
-                Mechanik: {o.assignedMechanicName}
+                Doradca: {o.assignedAdvisorName}
               </p>
             )}
           </div>
@@ -587,7 +587,7 @@ function TabSzkody({ vehicleId, vehicle }: { vehicleId: string; vehicle: Vehicle
 
   return (
     <div className="flex flex-col gap-3">
-      {!showForm && (
+      {!showForm && (user?.role === "logistics" || user?.role === "advisor") && (
         <button onClick={() => setShowForm(true)}
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold w-full justify-center"
           style={{ background: "var(--bg-primary)", border: "1px dashed rgba(239,68,68,.4)", color: "#ef4444" }}>

@@ -1,6 +1,6 @@
 import type { Zone, DropValidationResult, UserRole } from "@/types";
 
-const MECHANIC_FORBIDDEN_ZONES = ["salon", "wydawka", "myjnia_salon", "garaz"] as const;
+const ADVISOR_FORBIDDEN_ZONES = ["salon", "wydawka", "myjnia_salon", "garaz"] as const;
 
 export function validateDrop(
   zone: Zone,
@@ -14,8 +14,8 @@ export function validateDrop(
   }
 
   if (
-    userRole === "mechanic" &&
-    MECHANIC_FORBIDDEN_ZONES.includes(zone.id as (typeof MECHANIC_FORBIDDEN_ZONES)[number])
+    userRole === "advisor" &&
+    ADVISOR_FORBIDDEN_ZONES.includes(zone.id as (typeof ADVISOR_FORBIDDEN_ZONES)[number])
   ) {
     return {
       allowed: false,
@@ -36,7 +36,7 @@ export function validateDrop(
 // ─── RBAC helpers ─────────────────────────────────────────────────────────────
 
 export function canUserMoveVehicle(role: UserRole): boolean {
-  return role === "logistics" || role === "mechanic";
+  return role === "logistics" || role === "advisor";
 }
 
 export function canChangeQueueOrder(role: UserRole): boolean {
@@ -44,11 +44,19 @@ export function canChangeQueueOrder(role: UserRole): boolean {
 }
 
 export function canCreateServiceOrder(role: UserRole): boolean {
-  return role === "logistics" || role === "salesperson";
+  return role === "logistics";
 }
 
 export function canUpdateServiceOrderStatus(role: UserRole): boolean {
-  return role === "logistics" || role === "mechanic";
+  return role === "logistics";
+}
+
+export function canCreateDamageReport(role: UserRole): boolean {
+  return role === "logistics" || role === "advisor";
+}
+
+export function canEditWashQueue(role: UserRole): boolean {
+  return role === "logistics";
 }
 
 export function canManageDamageReport(role: UserRole): boolean {

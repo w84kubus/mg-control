@@ -2,7 +2,7 @@ import type { Timestamp } from "firebase/firestore";
 
 // ─── Auth & Users ────────────────────────────────────────────────────────────
 
-export type UserRole = "logistics" | "salesperson" | "mechanic" | "detailer";
+export type UserRole = "logistics" | "salesperson" | "advisor" | "detailer";
 
 export interface AppUser {
   uid: string;
@@ -87,8 +87,8 @@ export interface ServiceOrder {
   description: string;
   orderedBy: string;
   orderedByName: string;
-  assignedMechanicUid: string | null;
-  assignedMechanicName: string | null;
+  assignedAdvisorUid: string | null;
+  assignedAdvisorName: string | null;
   plannedDeliveryDate: Timestamp | null;
   completionDate: Timestamp | null;
   createdAt: Timestamp;

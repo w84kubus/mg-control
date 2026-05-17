@@ -408,7 +408,8 @@ export default function DamageReportsPage() {
     }
   }
 
-  const canAdvance = (user?.role === "logistics" || user?.role === "mechanic");
+  const canAdvance = user?.role === "logistics";
+  const canCreate = user?.role === "logistics" || user?.role === "advisor";
 
   const stageCounts = ALL_STAGES.reduce<Record<DamageStage, number>>(
     (acc, s) => {
@@ -440,13 +441,15 @@ export default function DamageReportsPage() {
             Szkody
           </h1>
         </div>
-        <button
-          onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: "var(--color-accent)", color: "#fff" }}
-        >
-          <Plus size={14} /> Nowe zgłoszenie
-        </button>
+        {canCreate && (
+          <button
+            onClick={openModal}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{ background: "var(--color-accent)", color: "#fff" }}
+          >
+            <Plus size={14} /> Nowe zgłoszenie
+          </button>
+        )}
       </div>
 
       {/* Stage filter tabs */}

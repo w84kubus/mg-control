@@ -93,14 +93,32 @@ function SlotCard({
   onAdd,
   onStatusChange,
   onDelete,
+  canEdit,
 }: {
   entry: WashWeekEntry | null;
   slotNum: number;
   onAdd: () => void;
   onStatusChange: (id: string, status: WashWeekEntry["status"]) => void;
   onDelete: (id: string) => void;
+  canEdit: boolean;
 }) {
   if (!entry) {
+    if (!canEdit) {
+      return (
+        <div
+          className="w-full flex items-center justify-center rounded-xl py-2.5 text-xs"
+          style={{
+            background: "var(--bg-primary)",
+            border: "1px dashed var(--bg-border2)",
+            color: "var(--color-muted)",
+            minHeight: 44,
+            opacity: 0.5,
+          }}
+        >
+          <span>Slot {slotNum}</span>
+        </div>
+      );
+    }
     return (
       <button
         onClick={onAdd}
@@ -139,7 +157,8 @@ function SlotCard({
             {entry.vehicleVin}
           </p>
         </div>
-        {/* Action buttons – visible on hover */}
+        {/* Action buttons – visible on hover (logistics only) */}
+        {canEdit && (
         <div className="flex-shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           {entry.status === "scheduled" && (
             <button
@@ -170,6 +189,7 @@ function SlotCard({
             <Trash2 size={11} />
           </button>
         </div>
+        )}
       </div>
 
       {/* Bottom row: color + owner + note */}
@@ -727,6 +747,7 @@ export default function WashQueuePage() {
                         onAdd={() => setAddTarget({ date: iso, slot: slotNum, dayIdx })}
                         onStatusChange={handleStatusChange}
                         onDelete={handleDelete}
+                        canEdit={user?.role === "logistics"}
                       />
                     );
                   })}
