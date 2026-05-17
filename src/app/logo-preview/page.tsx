@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 const B = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const LOGO = `${B}/logo-mg-plaza.png`;
+const ICON = `${B}/logo-mg-icon.png`;
 
 export default function LogoPreview() {
   return (
@@ -118,23 +119,52 @@ export default function LogoPreview() {
           <SidebarMock
             expanded={
               <SbLogo>
-                <img src={LOGO} alt="" style={{ width: 30, height: 30, objectFit: "contain", filter: "invert(1)" }} />
+                <img src={ICON} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "invert(1)" }} />
                 <span style={{ fontWeight: 900, fontSize: 14, letterSpacing: 3, color: "#fff", whiteSpace: "nowrap" }}>CONTROL</span>
               </SbLogo>
             }
             collapsed={
-              <SbLogoC><img src={LOGO} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "invert(1)" }} /></SbLogoC>
+              <SbLogoC><img src={ICON} alt="" style={{ width: 26, height: 26, objectFit: "contain", filter: "invert(1)" }} /></SbLogoC>
             }
           />
           <Label>Ekran logowania</Label>
           <LoginMock>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <img src={LOGO} alt="" style={{ width: 48, height: 48, objectFit: "contain", filter: "invert(1)" }} />
+              <img src={ICON} alt="" style={{ width: 44, height: 44, objectFit: "contain", filter: "invert(1)" }} />
               <div>
                 <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: 4, color: "#fff" }}>CONTROL</div>
                 <div style={{ fontSize: 9, color: "#71717a", letterSpacing: 1.5, marginTop: 1 }}>System Logistyki Salonu</div>
               </div>
             </div>
+            <LoginFields />
+          </LoginMock>
+        </Card>
+
+        {/* ═══ F ═══ */}
+        <Card title="Wersja F: MG + CONTROL inline" badge="Nowoczesne" desc="Ośmiokąt MG + MG CONTROL w jednej linii. Czyste, appowe. Sidebar i login spójne wizualnie.">
+          <Label>Sidebar</Label>
+          <SidebarMock
+            expanded={
+              <SbLogo>
+                <img src={ICON} alt="" style={{ width: 26, height: 26, objectFit: "contain", filter: "invert(1)" }} />
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ fontWeight: 900, fontSize: 13, letterSpacing: 1, color: "#fff" }}>MG</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 2, color: "#3b82f6" }}>CONTROL</span>
+                </div>
+              </SbLogo>
+            }
+            collapsed={
+              <SbLogoC><img src={ICON} alt="" style={{ width: 26, height: 26, objectFit: "contain", filter: "invert(1)" }} /></SbLogoC>
+            }
+          />
+          <Label>Ekran logowania</Label>
+          <LoginMock>
+            <img src={ICON} alt="" style={{ width: 52, height: 52, objectFit: "contain", filter: "invert(1)" }} />
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: 2, color: "#fff" }}>MG</span>
+              <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: 3, color: "#3b82f6" }}>CONTROL</span>
+            </div>
+            <div style={{ fontSize: 9, color: "#52525b", letterSpacing: 1.5, marginTop: -4 }}>Grupa Plaza · Warszawa</div>
             <LoginFields />
           </LoginMock>
         </Card>
