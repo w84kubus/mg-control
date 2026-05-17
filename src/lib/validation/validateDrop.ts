@@ -36,7 +36,7 @@ export function validateDrop(
 // ─── RBAC helpers ─────────────────────────────────────────────────────────────
 
 export function canUserMoveVehicle(role: UserRole): boolean {
-  return role === "logistics" || role === "mechanic";
+  return role === "logistics" || role === "salesperson" || role === "mechanic";
 }
 
 export function canChangeQueueOrder(role: UserRole): boolean {
