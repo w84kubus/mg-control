@@ -98,6 +98,13 @@ const inputSmStyle: React.CSSProperties = {
 
 // ─── Channel Form (inline) ──────────────────────────────────────────────────
 
+const CHARGED_TO_OPTIONS = [
+  "DEALER - GRATIS",
+  "KLIENT - ODDZIELNA FV",
+  "KLIENT - DOLICZONE DO FV ZA AUTO",
+];
+const VAT_RATE = 0.23;
+
 function ChannelForm({
   onAdd,
   onCancel,
@@ -106,22 +113,47 @@ function ChannelForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [chargedTo, setChargedTo] = useState("");
+  const [priceTab, setPriceTab] = useState<"brutto" | "netto">("brutto");
+  const [brutto, setBrutto] = useState("");
+  const [netto, setNetto] = useState("");
+  const [chargedTo, setChargedTo] = useState(CHARGED_TO_OPTIONS[0]);
+
+  function handleBruttoChange(val: string) {
+    setBrutto(val);
+    const num = parseFloat(val.replace(",", "."));
+    setNetto(isNaN(num) ? "" : (num / (1 + VAT_RATE)).toFixed(2).replace(".", ","));
+  }
+
+  function handleNettoChange(val: string) {
+    setNetto(val);
+    const num = parseFloat(val.replace(",", "."));
+    setBrutto(isNaN(num) ? "" : (num * (1 + VAT_RATE)).toFixed(2).replace(".", ","));
+  }
+
   function handleSubmit() {
     if (!name.trim()) {
       toast.error("Podaj nazwę kanału.");
       return;
     }
-    onAdd({
-      name: name.trim(),
-      price: price.trim(),
-      chargedTo: chargedTo.trim(),
-    });
+    const priceStr = brutto ? `${brutto} zł brutto` : "";
+    onAdd({ name: name.trim(), price: priceStr, chargedTo });
     setName("");
-    setPrice("");
-    setChargedTo("");
+    setBrutto("");
+    setNetto("");
+    setChargedTo(CHARGED_TO_OPTIONS[0]);
   }
+
+  const tabBtn = (tab: "brutto" | "netto") => ({
+    flex: 1,
+    padding: "0.25rem 0",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    borderRadius: "0.4rem",
+    cursor: "pointer" as const,
+    background: priceTab === tab ? "var(--color-accent)" : "transparent",
+    color: priceTab === tab ? "#fff" : "var(--color-muted)",
+    border: "none",
+  });
 
   return (
     <div
@@ -132,6 +164,7 @@ function ChannelForm({
         Nowy kanał zlecenia
       </p>
 
+      {/* Channel name */}
       <input
         type="text"
         placeholder="Nazwa kanału"
@@ -140,22 +173,69 @@ function ChannelForm({
         style={inputSmStyle}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input
-          type="text"
-          placeholder="Cena"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          style={inputSmStyle}
-        />
-        <input
-          type="text"
-          placeholder="Na kogo obciążenie"
-          value={chargedTo}
-          onChange={(e) => setChargedTo(e.target.value)}
-          style={inputSmStyle}
-        />
+      {/* Price with brutto/netto tabs */}
+      <div
+        className="flex flex-col gap-1.5 p-2 rounded-lg"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border2)" }}
+      >
+        {/* Tabs */}
+        <div
+          className="flex gap-1 p-0.5 rounded-md"
+          style={{ background: "var(--bg-primary)" }}
+        >
+          <button type="button" onClick={() => setPriceTab("brutto")} style={tabBtn("brutto")}>
+            Brutto
+          </button>
+          <button type="button" onClick={() => setPriceTab("netto")} style={tabBtn("netto")}>
+            Netto
+          </button>
+        </div>
+
+        {priceTab === "brutto" ? (
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              placeholder="Cena brutto (zł)"
+              value={brutto}
+              onChange={(e) => handleBruttoChange(e.target.value)}
+              style={inputSmStyle}
+            />
+            {netto && (
+              <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                Netto: <strong style={{ color: "var(--color-text)" }}>{netto} zł</strong>
+                <span style={{ opacity: 0.6 }}> (VAT 23%)</span>
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              placeholder="Cena netto (zł)"
+              value={netto}
+              onChange={(e) => handleNettoChange(e.target.value)}
+              style={inputSmStyle}
+            />
+            {brutto && (
+              <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                Brutto: <strong style={{ color: "var(--color-text)" }}>{brutto} zł</strong>
+                <span style={{ opacity: 0.6 }}> (VAT 23%)</span>
+              </p>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Charged to — select */}
+      <select
+        value={chargedTo}
+        onChange={(e) => setChargedTo(e.target.value)}
+        style={inputSmStyle}
+      >
+        {CHARGED_TO_OPTIONS.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
 
       <div className="flex gap-2">
         <button
