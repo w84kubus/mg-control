@@ -14,20 +14,22 @@ import type { VehicleStatus, VehicleType } from "@/types";
 // ─── Mappings ─────────────────────────────────────────────────────────────────
 
 const MODEL_MAP: Record<string, string> = {
-  "ZS (NEW)": "ZS", "ZS": "ZS", "ZS CLASSIC": "ZS",
-  "HS (NEW)": "HS", "HS": "HS", "HS+": "HS+", "HS +": "HS+",
-  "HS PHEV": "HS PHEV", "EHS": "EH5",
-  "MG3": "MG3", "MG4": "MG4", "MG5": "MG5", "MG7": "MG7",
-  "MG S5": "MG S5", "MG S9": "MG S9", "S9 PHEV": "MG S9",
-  "CYBERSTER": "Cyberster",
+  "ZS (NEW)": "ZS", "ZS": "ZS", "ZS CLASSIC": "ZS", "ZS HEV": "ZS HEV",
+  "HS (NEW)": "HS", "HS": "HS", "HS HEV": "HS HEV",
+  "HS PHEV": "HS PHEV", "EHS": "HS PHEV",
+  "MG3": "MG3", "MG4": "MG4 EV", "MG4 EV": "MG4 EV",
+  "MG S5": "MG S5 EV", "MG S5 EV": "MG S5 EV",
+  "MG S6": "MG S6 EV", "MG S6 EV": "MG S6 EV",
+  "MG S9": "MG S9 PHEV", "MG S9 PHEV": "MG S9 PHEV", "S9 PHEV": "MG S9 PHEV",
+  "CYBERSTER": "CYBERSTER",
 };
 
 const COLOR_MAP: Record<string, string> = {
-  "WHITE": "Biały", "BLACK": "Czarny",
-  "GRAY": "Szary", "GREY": "Szary",
-  "SILVER": "Srebrny", "RED": "Czerwony",
-  "BLUE": "Niebieski", "GREEN": "Zielony",
-  "YELLOW": "Żółty", "ORANGE": "Inny",
+  "WHITE": "WHITE", "BLACK": "BLACK",
+  "GRAY": "GRAY", "GREY": "GRAY",
+  "SILVER": "SILVER", "RED": "RED",
+  "BLUE": "BLUE", "GREEN": "GREEN",
+  "YELLOW": "YELLOW", "ORANGE": "ORANGE",
 };
 
 const ZONE_LABELS: Record<string, string> = {

@@ -34,8 +34,8 @@ const BarcodeScannerInline = dynamic(
 );
 
 const MG_MODELS = [
-  "MG3", "MG4", "MG5", "MG7", "ZS", "ZS EV", "HS", "HS PHEV",
-  "EH5", "Cyberster", "MG S5", "MG S9",
+  "HS HEV", "HS", "HS PHEV", "ZS HEV", "ZS",
+  "MG3", "MG4 EV", "MG S5 EV", "MG S6 EV", "MG S9 PHEV", "CYBERSTER",
 ];
 
 interface PlannedVehicle {

@@ -17,13 +17,12 @@ const BarcodeScannerInline = dynamic(
 );
 
 const MG_MODELS = [
-  "MG3", "MG4", "MG5", "MG7", "HS", "HS PHEV", "ZS", "ZS EV",
-  "EH5", "Cyberster", "Marvel R", "One",
+  "HS HEV", "HS", "HS PHEV", "ZS HEV", "ZS",
+  "MG3", "MG4 EV", "MG S5 EV", "MG S6 EV", "MG S9 PHEV", "CYBERSTER",
 ];
 
 const COLORS = [
-  "Biały", "Czarny", "Szary", "Srebrny", "Czerwony", "Niebieski",
-  "Zielony", "Brązowy", "Beżowy", "Inny",
+  "BLACK", "GRAY", "SILVER", "WHITE", "BLUE", "RED", "YELLOW", "ORANGE",
 ];
 
 interface Props {

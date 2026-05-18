@@ -19,13 +19,12 @@ const BarcodeScannerInline = dynamic(
 );
 
 const MG_MODELS = [
-  "MG3", "MG4", "MG5", "MG7", "ZS", "ZS EV", "HS", "HS PHEV",
-  "EH5", "Cyberster", "MG S5", "MG S9",
+  "HS HEV", "HS", "HS PHEV", "ZS HEV", "ZS",
+  "MG3", "MG4 EV", "MG S5 EV", "MG S6 EV", "MG S9 PHEV", "CYBERSTER",
 ];
 
 const COLORS = [
-  "Biały", "Czarny", "Szary", "Srebrny", "Czerwony", "Niebieski",
-  "Zielony", "Brązowy", "Beżowy", "Pomarańczowy", "Inny",
+  "BLACK", "GRAY", "SILVER", "WHITE", "BLUE", "RED", "YELLOW", "ORANGE",
 ];
 
 type VehicleCategory = "demo" | "company";
@@ -353,7 +352,7 @@ export default function CompanyVehiclesPage() {
     setSaving(true);
 
     const resolvedModel = category === "demo"
-      ? `MG ${model}`
+      ? model
       : modelFree.trim() || "—";
 
     const data = {
