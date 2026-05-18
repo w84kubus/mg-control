@@ -9,10 +9,11 @@ import {
   doc,
   updateDoc,
   addDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useVehiclesStore } from "@/store/vehiclesStore";
@@ -25,7 +26,7 @@ import {
 import { toast } from "react-toastify";
 import {
   AlertTriangle, Plus, X, ChevronRight, Shield,
-  Search, ImageIcon, FileText, Upload, ExternalLink,
+  Search, ImageIcon, FileText, Upload, ExternalLink, Trash2,
 } from "lucide-react";
 import type { DamageReport, DamageStage, Vehicle } from "@/types";
 
@@ -270,19 +271,23 @@ function AttachmentViewer({ sections }: { sections: AttachmentSection[] }) {
 interface DamageCardProps {
   report: DamageReport;
   canAdvance: boolean;
+  canDelete: boolean;
   onAdvance: (report: DamageReport) => void;
   onClose: (report: DamageReport) => void;
   onToggleRepaired: (report: DamageReport) => void;
   onToggleSettled: (report: DamageReport) => void;
+  onDelete: (report: DamageReport) => void;
 }
 
 function DamageCard({
   report,
   canAdvance,
+  canDelete,
   onAdvance,
   onClose,
   onToggleRepaired,
   onToggleSettled,
+  onDelete,
 }: DamageCardProps) {
   const [expanded, setExpanded] = useState(false);
   const stageColor = STAGE_COLORS[report.stage];
@@ -398,6 +403,22 @@ function DamageCard({
               }}
             >
               <Shield size={12} /> Zamknij szkodę
+            </button>
+          )}
+
+          {/* Delete */}
+          {canDelete && (
+            <button
+              onClick={() => onDelete(report)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs hover:opacity-80 transition-opacity"
+              style={{
+                background: "rgba(239,68,68,0.1)",
+                border: "1px solid rgba(239,68,68,0.3)",
+                color: "#ef4444",
+              }}
+              title="Usuń zgłoszenie"
+            >
+              <Trash2 size={11} />
             </button>
           )}
 
@@ -610,6 +631,31 @@ export default function DamageReportsPage() {
     }
   }
 
+  // ── Delete report ───────────────────────────────────────────────────────────
+
+  async function handleDelete(report: DamageReport) {
+    if (!confirm(`Na pewno usunąć zgłoszenie szkody dla pojazdu ${report.vehicleVin.slice(-7)}? Operacja jest nieodwracalna.`)) return;
+    try {
+      const allUrls = [
+        ...(report.photoUrls ?? []),
+        ...(report.kosztorysUrls ?? []),
+        ...(report.listPrzewozowyUrls ?? []),
+        ...(report.wycenaUrls ?? []),
+      ];
+      await Promise.allSettled(
+        allUrls.map((url) => {
+          const match = url.match(/\/o\/(.+?)\?/);
+          if (!match) return Promise.resolve();
+          return deleteObject(storageRef(storage, decodeURIComponent(match[1]))).catch(() => {});
+        })
+      );
+      await deleteDoc(doc(db, "damageReports", report.id));
+      toast.success("Zgłoszenie usunięte.");
+    } catch {
+      toast.error("Nie udało się usunąć zgłoszenia.");
+    }
+  }
+
   // ── Upload helpers ──────────────────────────────────────────────────────────
 
   async function uploadCategory(docId: string, category: string, files: File[]): Promise<string[]> {
@@ -642,10 +688,12 @@ export default function DamageReportsPage() {
     if (!selectedVehicle) { toast.error("Wybierz pojazd."); return; }
     if (!user) return;
     setSaving(true);
+
+    // 1. Create Firestore document
+    let docRef;
     try {
-      // 1. Create document
       setUploadProgress("Tworzenie zgłoszenia…");
-      const docRef = await addDoc(collection(db, "damageReports"), {
+      docRef = await addDoc(collection(db, "damageReports"), {
         vehicleId: selectedVehicle.id,
         vehicleVin: selectedVehicle.vin,
         vehicleModel: selectedVehicle.model,
@@ -665,10 +713,18 @@ export default function DamageReportsPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+    } catch (err) {
+      console.error(err);
+      toast.error("Nie udało się dodać zgłoszenia.");
+      setSaving(false);
+      setUploadProgress("");
+      return;
+    }
 
-      // 2. Upload files in parallel per category
-      const totalFiles = photoFiles.length + kosztorysFiles.length + listPrzewozowyFiles.length + wycenaFiles.length;
-      if (totalFiles > 0) {
+    // 2. Upload files — separate try/catch so a failed upload doesn't hide the saved report
+    const totalFiles = photoFiles.length + kosztorysFiles.length + listPrzewozowyFiles.length + wycenaFiles.length;
+    if (totalFiles > 0) {
+      try {
         setUploadProgress(`Przesyłanie ${totalFiles} pliku(-ów)…`);
         const [photoUrls, kosztorysUrls, listPrzewozowyUrls, wycenaUrls] = await Promise.all([
           uploadCategory(docRef.id, "photos", photoFiles),
@@ -676,8 +732,6 @@ export default function DamageReportsPage() {
           uploadCategory(docRef.id, "list_przewozowy", listPrzewozowyFiles),
           uploadCategory(docRef.id, "wycena", wycenaFiles),
         ]);
-
-        // 3. Update document with URLs
         setUploadProgress("Zapisywanie linków…");
         await updateDoc(docRef, {
           photoUrls,
@@ -686,17 +740,18 @@ export default function DamageReportsPage() {
           wycenaUrls,
           updatedAt: serverTimestamp(),
         });
+        toast.success("Zgłoszenie szkody dodane.");
+      } catch (err) {
+        console.error(err);
+        toast.warning("Zgłoszenie zapisane, ale nie udało się przesłać plików. Spróbuj ponownie później.");
       }
-
+    } else {
       toast.success("Zgłoszenie szkody dodane.");
-      setShowModal(false);
-    } catch (err) {
-      console.error(err);
-      toast.error("Nie udało się dodać zgłoszenia.");
-    } finally {
-      setSaving(false);
-      setUploadProgress("");
     }
+
+    setShowModal(false);
+    setSaving(false);
+    setUploadProgress("");
   }
 
   const canAdvance = user?.role === "logistics";
@@ -796,10 +851,12 @@ export default function DamageReportsPage() {
               key={report.id}
               report={report}
               canAdvance={canAdvance}
+              canDelete={canAdvance}
               onAdvance={handleAdvance}
               onClose={handleClose}
               onToggleRepaired={handleToggleRepaired}
               onToggleSettled={handleToggleSettled}
+              onDelete={handleDelete}
             />
           ))}
         </div>
