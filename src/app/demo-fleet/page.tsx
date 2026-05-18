@@ -45,10 +45,19 @@ interface CompanyVehicle {
 }
 
 function normalizeModel(raw: string): string {
-  if (MG_MODELS.includes(raw)) return raw;
+  const t = raw.trim();
+  // Exact match
+  if (MG_MODELS.includes(t)) return t;
   // Strip legacy "MG " prefix (old records stored e.g. "MG MG4 EV")
-  const stripped = raw.startsWith("MG ") ? raw.slice(3) : raw;
-  return MG_MODELS.includes(stripped) ? stripped : MG_MODELS[0];
+  const stripped = t.startsWith("MG ") ? t.slice(3) : t;
+  if (MG_MODELS.includes(stripped)) return stripped;
+  // Case-insensitive fallback (handles "Cyberster", "cyberster", etc.)
+  const tUp = t.toUpperCase();
+  const strUp = stripped.toUpperCase();
+  const ciMatch = MG_MODELS.find(
+    (m) => m.toUpperCase() === tUp || m.toUpperCase() === strUp
+  );
+  return ciMatch ?? MG_MODELS[0];
 }
 
 const COLOR_LEGACY: Record<string, string> = {
@@ -359,7 +368,11 @@ export default function CompanyVehiclesPage() {
     const cat = v.category ?? "demo";
     setCategory(cat);
     if (cat === "demo") {
-      setModel(normalizeModel(v.model));
+      const resolvedDemoModel = normalizeModel(v.model ?? "");
+      if (resolvedDemoModel === MG_MODELS[0] && v.model && v.model !== MG_MODELS[0]) {
+        console.warn("[openEdit] model nie rozpoznany, fallback do HS HEV. Oryginał:", JSON.stringify(v.model));
+      }
+      setModel(resolvedDemoModel);
       setModelFree("");
     } else {
       setModel(MG_MODELS[0]);
@@ -548,7 +561,7 @@ export default function CompanyVehiclesPage() {
                     <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Model *</label>
                     <select className={inputCls} style={inputStyle} value={model}
                             onChange={(e) => setModel(e.target.value)}>
-                      {MG_MODELS.map((m) => <option key={m}>{m}</option>)}
+                      {MG_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
