@@ -9,7 +9,7 @@ import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "react-toastify";
 import {
-  Car, Plus, X, Pencil, Trash2, Save, XCircle, ChevronDown, ChevronUp, ScanLine,
+  Car, Plus, X, Pencil, Trash2, ChevronDown, ChevronUp, ScanLine, Building2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -28,14 +28,18 @@ const COLORS = [
   "Zielony", "Brązowy", "Beżowy", "Pomarańczowy", "Inny",
 ];
 
+type VehicleCategory = "demo" | "company";
+
 interface CompanyVehicle {
   id: string;
+  category: VehicleCategory;
   model: string;
   color: string;
   licensePlate: string;
   vin: string;
   mileageDate: string | null;
   mileage: number | null;
+  assignedTo: string;
   notes: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -48,6 +52,232 @@ const inputStyle: React.CSSProperties = {
   color: "var(--color-text)",
 };
 
+// ─── Shared table/card component ─────────────────────────────────────────────
+
+function VehicleTable({
+  vehicles,
+  onEdit,
+  onDelete,
+}: {
+  vehicles: CompanyVehicle[];
+  onEdit: (v: CompanyVehicle) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [sortField, setSortField] = useState<"model" | "mileageDate">("model");
+  const [sortAsc, setSortAsc] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  function toggleSort(field: "model" | "mileageDate") {
+    if (sortField === field) setSortAsc(!sortAsc);
+    else { setSortField(field); setSortAsc(true); }
+  }
+
+  const sorted = [...vehicles].sort((a, b) => {
+    const cmp = sortField === "model"
+      ? a.model.localeCompare(b.model)
+      : (a.mileageDate ?? "").localeCompare(b.mileageDate ?? "");
+    return sortAsc ? cmp : -cmp;
+  });
+
+  const SortIcon = ({ field }: { field: "model" | "mileageDate" }) =>
+    sortField !== field ? null : sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
+
+  if (vehicles.length === 0) return null;
+
+  return (
+    <>
+      {/* Desktop */}
+      <div className="hidden md:block rounded-2xl overflow-hidden"
+           style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--bg-border)" }}>
+                {[
+                  { key: "model", label: "Model", sortable: true },
+                  { key: "color", label: "Kolor" },
+                  { key: "plate", label: "Nr rej." },
+                  { key: "vin", label: "VIN" },
+                  { key: "assignedTo", label: "Przypisane do" },
+                  { key: "mileageDate", label: "Data przebiegu", sortable: true },
+                  { key: "mileage", label: "Przebieg" },
+                  { key: "notes", label: "Adnotacje" },
+                  { key: "actions", label: "" },
+                ].map((h) => (
+                  <th key={h.key}
+                      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${h.sortable ? "cursor-pointer select-none hover:opacity-70" : ""}`}
+                      style={{ color: "var(--color-muted)" }}
+                      onClick={() => h.sortable && toggleSort(h.key as "model" | "mileageDate")}>
+                    <span className="flex items-center gap-1">
+                      {h.label}
+                      {h.sortable && <SortIcon field={h.key as "model" | "mileageDate"} />}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((v) => (
+                <tr key={v.id} className="hover:opacity-90 transition-opacity"
+                    style={{ borderBottom: "1px solid var(--bg-border)" }}>
+                  <td className="px-4 py-3 font-medium" style={{ color: "var(--color-text)" }}>
+                    {v.model}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                    {v.color || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-xs font-mono font-medium" style={{ color: "var(--color-text)" }}>
+                    {v.licensePlate || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs" style={{ color: "var(--color-muted)" }}>
+                      {v.vin ? v.vin.slice(-7) : "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                    {v.assignedTo || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                    {v.mileageDate ? new Date(v.mileageDate).toLocaleDateString("pl-PL") : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-xs font-medium" style={{ color: "var(--color-text)" }}>
+                    {v.mileage != null ? `${v.mileage.toLocaleString("pl-PL")} km` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-xs max-w-[160px] truncate" style={{ color: "var(--color-muted)" }}
+                      title={v.notes}>
+                    {v.notes || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => onEdit(v)} title="Edytuj"
+                              className="p-1.5 rounded-lg hover:opacity-70"
+                              style={{ color: "var(--color-accent)" }}>
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => onDelete(v.id)} title="Usuń"
+                              className="p-1.5 rounded-lg hover:opacity-70"
+                              style={{ color: "var(--color-danger)" }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {sorted.map((v) => (
+          <div key={v.id} className="rounded-2xl p-4"
+               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-semibold text-sm" style={{ color: "var(--color-text)" }}>
+                  {v.model}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {v.color} · {v.licensePlate || "brak nr rej."}
+                </p>
+                {v.assignedTo && (
+                  <p className="text-xs mt-0.5 font-medium" style={{ color: "var(--color-accent)" }}>
+                    {v.assignedTo}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => onEdit(v)} className="p-1.5 rounded-lg"
+                        style={{ color: "var(--color-accent)" }}>
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => onDelete(v.id)} className="p-1.5 rounded-lg"
+                        style={{ color: "var(--color-danger)" }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+
+            <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
+                    className="w-full mt-2 pt-2 flex items-center justify-between text-xs"
+                    style={{ borderTop: "1px solid var(--bg-border)", color: "var(--color-muted)" }}>
+              <span>Szczegóły</span>
+              {expandedId === v.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+
+            {expandedId === v.id && (
+              <div className="mt-2 flex flex-col gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                <div className="flex justify-between">
+                  <span>VIN</span>
+                  <span className="font-mono" style={{ color: "var(--color-text)" }}>{v.vin || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Data przebiegu</span>
+                  <span style={{ color: "var(--color-text)" }}>
+                    {v.mileageDate ? new Date(v.mileageDate).toLocaleDateString("pl-PL") : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Przebieg</span>
+                  <span style={{ color: "var(--color-text)" }}>
+                    {v.mileage != null ? `${v.mileage.toLocaleString("pl-PL")} km` : "—"}
+                  </span>
+                </div>
+                {v.notes && (
+                  <div className="mt-1 p-2 rounded-lg" style={{ background: "var(--bg-primary)" }}>
+                    {v.notes}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+function SectionHeader({
+  icon,
+  title,
+  count,
+  accent,
+  onAdd,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  accent: string;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+             style={{ background: accent + "20" }}>
+          <span style={{ color: accent }}>{icon}</span>
+        </div>
+        <div>
+          <h2 className="text-base font-bold" style={{ color: "var(--color-text)" }}>{title}</h2>
+          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+            {count} {count === 1 ? "pojazd" : "pojazdów"}
+          </p>
+        </div>
+      </div>
+      <button onClick={onAdd}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold"
+              style={{ background: accent, color: "#fff" }}>
+        <Plus size={13} /> Dodaj
+      </button>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function CompanyVehiclesPage() {
   const { user } = useAuthStore();
   const [vehicles, setVehicles] = useState<CompanyVehicle[]>([]);
@@ -55,17 +285,17 @@ export default function CompanyVehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
-  const [sortField, setSortField] = useState<"model" | "mileageDate">("model");
-  const [sortAsc, setSortAsc] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Form state
+  const [category, setCategory] = useState<VehicleCategory>("demo");
   const [model, setModel] = useState(MG_MODELS[0]);
+  const [modelFree, setModelFree] = useState(""); // for company category
   const [color, setColor] = useState(COLORS[0]);
   const [licensePlate, setLicensePlate] = useState("");
   const [vin, setVin] = useState("");
   const [mileageDate, setMileageDate] = useState("");
   const [mileage, setMileage] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -76,35 +306,41 @@ export default function CompanyVehiclesPage() {
         setVehicles(snap.docs.map((d) => ({ id: d.id, ...d.data() } as CompanyVehicle)));
         setLoading(false);
       },
-      () => { toast.error("Błąd ładowania aut firmowych."); setLoading(false); }
+      () => { toast.error("Błąd ładowania aut."); setLoading(false); }
     );
     return unsub;
   }, []);
 
   function resetForm() {
     setModel(MG_MODELS[0]);
+    setModelFree("");
     setColor(COLORS[0]);
     setLicensePlate("");
     setVin("");
     setMileageDate("");
     setMileage("");
+    setAssignedTo("");
     setNotes("");
     setEditingId(null);
     setShowScanner(false);
   }
 
-  function openAdd() {
+  function openAdd(cat: VehicleCategory) {
     resetForm();
+    setCategory(cat);
     setShowModal(true);
   }
 
   function openEdit(v: CompanyVehicle) {
-    setModel(v.model);
+    setCategory(v.category ?? "demo");
+    setModel(MG_MODELS.includes(v.model) ? v.model : MG_MODELS[0]);
+    setModelFree(MG_MODELS.includes(v.model) ? "" : v.model);
     setColor(v.color);
     setLicensePlate(v.licensePlate);
     setVin(v.vin);
     setMileageDate(v.mileageDate ?? "");
     setMileage(v.mileage != null ? String(v.mileage) : "");
+    setAssignedTo(v.assignedTo ?? "");
     setNotes(v.notes);
     setEditingId(v.id);
     setShowScanner(false);
@@ -116,13 +352,19 @@ export default function CompanyVehiclesPage() {
     if (!user) return;
     setSaving(true);
 
+    const resolvedModel = category === "demo"
+      ? `MG ${model}`
+      : modelFree.trim() || "—";
+
     const data = {
-      model,
+      category,
+      model: resolvedModel,
       color,
       licensePlate: licensePlate.trim().toUpperCase(),
       vin: vin.trim().toUpperCase(),
       mileageDate: mileageDate || null,
       mileage: mileage ? parseInt(mileage) : null,
+      assignedTo: assignedTo.trim(),
       notes: notes.trim(),
       updatedAt: serverTimestamp(),
     };
@@ -130,14 +372,14 @@ export default function CompanyVehiclesPage() {
     try {
       if (editingId) {
         await updateDoc(doc(db, "companyVehicles", editingId), data);
-        toast.success("Zaktualizowano auto firmowe.");
+        toast.success("Zaktualizowano.");
       } else {
         await addDoc(collection(db, "companyVehicles"), {
           ...data,
           createdAt: serverTimestamp(),
           createdBy: user.uid,
         });
-        toast.success("Dodano auto firmowe.");
+        toast.success("Dodano.");
       }
       setShowModal(false);
       resetForm();
@@ -158,216 +400,91 @@ export default function CompanyVehiclesPage() {
     }
   }
 
-  function toggleSort(field: "model" | "mileageDate") {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(true);
-    }
-  }
+  const demoVehicles = vehicles.filter((v) => (v.category ?? "demo") === "demo");
+  const companyVehicles = vehicles.filter((v) => v.category === "company");
 
-  const sorted = [...vehicles].sort((a, b) => {
-    let cmp = 0;
-    if (sortField === "model") {
-      cmp = a.model.localeCompare(b.model);
-    } else {
-      cmp = (a.mileageDate ?? "").localeCompare(b.mileageDate ?? "");
-    }
-    return sortAsc ? cmp : -cmp;
-  });
-
-  const SortIcon = ({ field }: { field: "model" | "mileageDate" }) => {
-    if (sortField !== field) return null;
-    return sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
-  };
+  const modalTitle = editingId
+    ? "Edytuj pojazd"
+    : category === "demo" ? "Dodaj auto demo" : "Dodaj auto firmowe";
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Car size={22} style={{ color: "var(--color-accent)" }} />
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--color-text)" }}>
-              Auta firmowe (demo)
-            </h1>
-            <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-              {vehicles.length} {vehicles.length === 1 ? "pojazd" : "pojazdów"}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: "var(--color-accent)", color: "#fff" }}
-        >
-          <Plus size={14} /> Dodaj auto
-        </button>
+    <div className="flex flex-col gap-8 max-w-5xl">
+
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <Car size={22} style={{ color: "var(--color-accent)" }} />
+        <h1 className="text-xl font-bold" style={{ color: "var(--color-text)" }}>
+          Auta firmowe
+        </h1>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 border-2 rounded-full animate-spin"
                style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
         </div>
-      ) : vehicles.length === 0 ? (
-        <div className="rounded-2xl flex flex-col items-center justify-center py-16 gap-3"
-             style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
-          <Car size={32} style={{ color: "var(--color-muted)" }} />
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>Brak aut firmowych.</p>
-          <button onClick={openAdd}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold mt-2"
-                  style={{ background: "var(--color-accent)", color: "#fff" }}>
-            <Plus size={12} /> Dodaj pierwsze auto
-          </button>
-        </div>
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden md:block rounded-2xl overflow-hidden"
-               style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                    {[
-                      { key: "model", label: "Model", sortable: true },
-                      { key: "color", label: "Kolor" },
-                      { key: "plate", label: "Nr rej." },
-                      { key: "vin", label: "VIN" },
-                      { key: "mileageDate", label: "Data przebiegu", sortable: true },
-                      { key: "mileage", label: "Przebieg" },
-                      { key: "notes", label: "Adnotacje" },
-                      { key: "actions", label: "" },
-                    ].map((h) => (
-                      <th key={h.key}
-                          className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${h.sortable ? "cursor-pointer select-none hover:opacity-70" : ""}`}
-                          style={{ color: "var(--color-muted)" }}
-                          onClick={() => h.sortable && toggleSort(h.key as "model" | "mileageDate")}>
-                        <span className="flex items-center gap-1">
-                          {h.label}
-                          {h.sortable && <SortIcon field={h.key as "model" | "mileageDate"} />}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((v) => (
-                    <tr key={v.id} className="hover:opacity-90 transition-opacity"
-                        style={{ borderBottom: "1px solid var(--bg-border)" }}>
-                      <td className="px-4 py-3 font-medium" style={{ color: "var(--color-text)" }}>
-                        MG {v.model}
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
-                        {v.color || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-mono font-medium" style={{ color: "var(--color-text)" }}>
-                        {v.licensePlate || "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs" style={{ color: "var(--color-muted)" }}>
-                          {v.vin ? v.vin.slice(-7) : "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
-                        {v.mileageDate ? new Date(v.mileageDate).toLocaleDateString("pl-PL") : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-medium" style={{ color: "var(--color-text)" }}>
-                        {v.mileage != null ? `${v.mileage.toLocaleString("pl-PL")} km` : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-xs max-w-[200px] truncate" style={{ color: "var(--color-muted)" }}
-                          title={v.notes}>
-                        {v.notes || "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openEdit(v)} title="Edytuj"
-                                  className="p-1.5 rounded-lg hover:opacity-70"
-                                  style={{ color: "var(--color-accent)" }}>
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(v.id)} title="Usuń"
-                                  className="p-1.5 rounded-lg hover:opacity-70"
-                                  style={{ color: "var(--color-danger)" }}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {/* ── SEKCJA DEMO ── */}
+          <div className="flex flex-col gap-4">
+            <SectionHeader
+              icon={<Car size={16} />}
+              title="Auta demonstracyjne"
+              count={demoVehicles.length}
+              accent="var(--color-accent)"
+              onAdd={() => openAdd("demo")}
+            />
+
+            {demoVehicles.length === 0 ? (
+              <div className="rounded-2xl flex flex-col items-center justify-center py-10 gap-2"
+                   style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
+                <Car size={28} style={{ color: "var(--color-muted)" }} />
+                <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+                  Brak aut demonstracyjnych.
+                </p>
+              </div>
+            ) : (
+              <VehicleTable
+                vehicles={demoVehicles}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            )}
           </div>
 
-          {/* Mobile cards */}
-          <div className="flex flex-col gap-3 md:hidden">
-            {sorted.map((v) => (
-              <div key={v.id} className="rounded-2xl p-4"
+          {/* separator */}
+          <div style={{ height: 1, background: "var(--bg-border)" }} />
+
+          {/* ── SEKCJA FIRMOWE ── */}
+          <div className="flex flex-col gap-4">
+            <SectionHeader
+              icon={<Building2 size={16} />}
+              title="Auta firmowe (zastępcze / kierownicze)"
+              count={companyVehicles.length}
+              accent="#a78bfa"
+              onAdd={() => openAdd("company")}
+            />
+
+            {companyVehicles.length === 0 ? (
+              <div className="rounded-2xl flex flex-col items-center justify-center py-10 gap-2"
                    style={{ background: "var(--bg-surface)", border: "1px solid var(--bg-border)" }}>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-sm" style={{ color: "var(--color-text)" }}>
-                      MG {v.model}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                      {v.color} · {v.licensePlate || "brak nr rej."}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => openEdit(v)}
-                            className="p-1.5 rounded-lg" style={{ color: "var(--color-accent)" }}>
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => handleDelete(v.id)}
-                            className="p-1.5 rounded-lg" style={{ color: "var(--color-danger)" }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
-                        className="w-full mt-2 pt-2 flex items-center justify-between text-xs"
-                        style={{ borderTop: "1px solid var(--bg-border)", color: "var(--color-muted)" }}>
-                  <span>Szczegóły</span>
-                  {expandedId === v.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-
-                {expandedId === v.id && (
-                  <div className="mt-2 flex flex-col gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
-                    <div className="flex justify-between">
-                      <span>VIN</span>
-                      <span className="font-mono" style={{ color: "var(--color-text)" }}>{v.vin || "—"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Data przebiegu</span>
-                      <span style={{ color: "var(--color-text)" }}>
-                        {v.mileageDate ? new Date(v.mileageDate).toLocaleDateString("pl-PL") : "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Przebieg</span>
-                      <span style={{ color: "var(--color-text)" }}>
-                        {v.mileage != null ? `${v.mileage.toLocaleString("pl-PL")} km` : "—"}
-                      </span>
-                    </div>
-                    {v.notes && (
-                      <div className="mt-1 p-2 rounded-lg" style={{ background: "var(--bg-primary)" }}>
-                        {v.notes}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <Building2 size={28} style={{ color: "var(--color-muted)" }} />
+                <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+                  Brak aut firmowych.
+                </p>
               </div>
-            ))}
+            ) : (
+              <VehicleTable
+                vehicles={companyVehicles}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            )}
           </div>
         </>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* ── MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
              style={{ background: "rgba(0,0,0,0.75)" }}>
@@ -378,10 +495,11 @@ export default function CompanyVehiclesPage() {
             <div className="flex items-center justify-between px-5 py-4"
                  style={{ borderBottom: "1px solid var(--bg-border)" }}>
               <div className="flex items-center gap-2">
-                {editingId ? <Pencil size={16} style={{ color: "var(--color-accent)" }} />
-                           : <Plus size={16} style={{ color: "var(--color-accent)" }} />}
+                {category === "demo"
+                  ? <Car size={16} style={{ color: "var(--color-accent)" }} />
+                  : <Building2 size={16} style={{ color: "#a78bfa" }} />}
                 <h2 className="font-bold text-base" style={{ color: "var(--color-text)" }}>
-                  {editingId ? "Edytuj auto firmowe" : "Dodaj auto firmowe"}
+                  {modalTitle}
                 </h2>
               </div>
               <button onClick={() => { setShowModal(false); resetForm(); }}
@@ -392,23 +510,52 @@ export default function CompanyVehiclesPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-              {/* Model + Kolor */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Model *</label>
-                  <select className={inputCls} style={inputStyle} value={model}
-                          onChange={(e) => setModel(e.target.value)}>
-                    {MG_MODELS.map((m) => <option key={m}>{m}</option>)}
-                  </select>
+
+              {/* Model */}
+              {category === "demo" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Model *</label>
+                    <select className={inputCls} style={inputStyle} value={model}
+                            onChange={(e) => setModel(e.target.value)}>
+                      {MG_MODELS.map((m) => <option key={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Kolor</label>
+                    <select className={inputCls} style={inputStyle} value={color}
+                            onChange={(e) => setColor(e.target.value)}>
+                      {COLORS.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Kolor</label>
-                  <select className={inputCls} style={inputStyle} value={color}
-                          onChange={(e) => setColor(e.target.value)}>
-                    {COLORS.map((c) => <option key={c}>{c}</option>)}
-                  </select>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Marka i model *</label>
+                    <input className={inputCls} style={inputStyle}
+                           value={modelFree} onChange={(e) => setModelFree(e.target.value)}
+                           placeholder="np. Toyota Corolla" required />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Kolor</label>
+                    <select className={inputCls} style={inputStyle} value={color}
+                            onChange={(e) => setColor(e.target.value)}>
+                      {COLORS.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Przypisane do — tylko dla firmowych */}
+              {category === "company" && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Przypisane do</label>
+                  <input className={inputCls} style={inputStyle}
+                         value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
+                         placeholder="np. Pan Maciej, Serwis zastępczy, Dyrektor…" />
+                </div>
+              )}
 
               {/* Nr rej */}
               <div className="flex flex-col gap-1">
@@ -449,7 +596,8 @@ export default function CompanyVehiclesPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Data przebiegu</label>
-                  <input type="date" className={inputCls} style={inputStyle}
+                  <input type="date" className={inputCls}
+                         style={{ ...inputStyle, width: "auto", maxWidth: "12rem" }}
                          value={mileageDate} onChange={(e) => setMileageDate(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -464,7 +612,7 @@ export default function CompanyVehiclesPage() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Adnotacje</label>
                 <textarea className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)}
-                          rows={3} placeholder="np. Auto pana Macieja, ubezpieczenie do 03.2026…"
+                          rows={3} placeholder="np. ubezpieczenie do 03.2026, serwis planowany…"
                           style={{ ...inputStyle, resize: "vertical" }} />
               </div>
 
@@ -477,8 +625,11 @@ export default function CompanyVehiclesPage() {
                 </button>
                 <button type="submit" disabled={saving}
                         className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-                        style={{ background: "var(--color-accent)", color: "#fff" }}>
-                  {saving ? "Zapisywanie…" : editingId ? "Zapisz zmiany" : "Dodaj auto"}
+                        style={{
+                          background: category === "demo" ? "var(--color-accent)" : "#a78bfa",
+                          color: "#fff",
+                        }}>
+                  {saving ? "Zapisywanie…" : editingId ? "Zapisz zmiany" : "Dodaj"}
                 </button>
               </div>
             </form>
