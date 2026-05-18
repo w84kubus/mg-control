@@ -70,7 +70,7 @@ const inputStyle: React.CSSProperties = {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-function TabDane({ vehicle }: { vehicle: Vehicle }) {
+function TabDane({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => void }) {
   const { user } = useAuthStore();
   const { zones } = useZonesStore();
   const [editing, setEditing] = useState(false);
@@ -283,11 +283,28 @@ function TabDane({ vehicle }: { vehicle: Vehicle }) {
               </button>
             </>
           ) : (
-            <button onClick={() => setEditing(true)}
-              className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
-              style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}>
-              <Edit3 size={13} /> Edytuj
-            </button>
+            <div className="flex gap-2 w-full">
+              <button onClick={() => setEditing(true)}
+                className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                style={{ background: "var(--bg-primary)", border: "1px solid var(--bg-border2)", color: "var(--color-text)" }}>
+                <Edit3 size={13} /> Edytuj
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Na pewno usunąć pojazd ${vehicle.vin}? Operacja jest nieodwracalna.`)) return;
+                  try {
+                    await deleteDoc(doc(db, "vehicles", vehicle.id));
+                    onClose();
+                  } catch {
+                    alert("Nie udało się usunąć pojazdu.");
+                  }
+                }}
+                className="px-3 py-2 rounded-xl text-sm flex items-center justify-center hover:opacity-80 transition-opacity"
+                style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}
+                title="Usuń pojazd z bazy">
+                <Trash2 size={14} />
+              </button>
+            </div>
           )}
         </div>
       ) : null}
@@ -938,7 +955,7 @@ export default function VehicleModal({ vehicleId, onClose }: Props) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
-          {tab === "dane"      && <TabDane vehicle={vehicle} />}
+          {tab === "dane"      && <TabDane vehicle={vehicle} onClose={onClose} />}
           {tab === "zlecenia"  && <TabZlecenia vehicleId={vehicleId} />}
           {tab === "szkody"    && <TabSzkody vehicleId={vehicleId} vehicle={vehicle} />}
           {tab === "dokumenty" && <TabDokumenty vehicleId={vehicleId} vehicle={vehicle} />}
