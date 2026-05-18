@@ -16,12 +16,23 @@ service firebase.storage {
       allow delete: if isAuth();
     }
 
-    // damage photos
+    // damage photos (legacy path)
     match /damage/{reportId}/{filename} {
       allow read:   if isAuth();
       allow create: if isAuth()
-                    && request.resource.size < 20 * 1024 * 1024
-                    && request.resource.contentType.matches("image/(jpeg|png|gif|webp)");
+                    && request.resource.size < 30 * 1024 * 1024
+                    && request.resource.contentType.matches("image/(jpeg|png|gif|webp|heic)");
+      allow delete: if isAuth();
+    }
+
+    // damage report attachments — photos, kosztorys, list przewozowy, wycena
+    match /damageReports/{docId}/{category}/{filename} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+                    && request.resource.size < 30 * 1024 * 1024
+                    && request.resource.contentType.matches(
+                         "image/(jpeg|png|gif|webp|heic)"
+                       + "|application/pdf");
       allow delete: if isAuth();
     }
   }
