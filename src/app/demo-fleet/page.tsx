@@ -535,7 +535,7 @@ export default function CompanyVehiclesPage() {
                     <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Marka i model *</label>
                     <input className={inputCls} style={inputStyle}
                            value={modelFree} onChange={(e) => setModelFree(e.target.value)}
-                           placeholder="np. Toyota Corolla" required />
+                           placeholder="np. MG ZS" required />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Kolor</label>
@@ -553,7 +553,7 @@ export default function CompanyVehiclesPage() {
                   <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>Przypisane do</label>
                   <input className={inputCls} style={inputStyle}
                          value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
-                         placeholder="np. Pan Maciej, Serwis zastępczy, Dyrektor…" />
+                         placeholder="np. Dyrektor, Serwis zastępczy…" />
                 </div>
               )}
 
