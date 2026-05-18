@@ -156,8 +156,8 @@ function SlotCard({
           <p className="text-xs font-semibold truncate" style={{ color: "var(--color-text)" }}>
             {entry.vehicleModel}
           </p>
-          <p className="text-xs font-mono truncate" style={{ color: "var(--color-muted)" }}>
-            {entry.vehicleVin}
+          <p className="text-xs font-mono" style={{ color: "var(--color-muted)" }}>
+            {entry.vehicleVin ? entry.vehicleVin.slice(-7) : "—"}
           </p>
         </div>
         {/* Action buttons – visible on hover (logistics only) */}
