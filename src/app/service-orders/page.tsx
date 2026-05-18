@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   addDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -414,6 +415,16 @@ export default function ServiceOrdersPage() {
     setShowModal(true);
   };
 
+  async function handleDelete(order: ServiceOrder) {
+    if (!confirm(`Na pewno usunąć zlecenie dla ${order.vehicleModel} (${order.vehicleVin.slice(-7)})? Operacja jest nieodwracalna.`)) return;
+    try {
+      await deleteDoc(doc(db, "serviceOrders", order.id));
+      toast.success("Zlecenie usunięte.");
+    } catch {
+      toast.error("Nie udało się usunąć zlecenia.");
+    }
+  }
+
   async function handleStatusClick(order: ServiceOrder) {
     const next = cycleStatus(order.status);
     try {
@@ -667,13 +678,25 @@ export default function ServiceOrdersPage() {
                             : "—"}
                         </td>
                         <td className="px-2 py-3">
-                          <button
-                            onClick={() => setExpandedId(isExpanded ? null : order.id)}
-                            className="p-1 rounded-lg hover:opacity-70"
-                            style={{ color: "var(--color-muted)" }}
-                          >
-                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </button>
+                          <div className="flex items-center gap-1">
+                            {user?.role === "logistics" && (
+                              <button
+                                onClick={() => handleDelete(order)}
+                                className="p-1 rounded-lg hover:opacity-70"
+                                style={{ color: "#ef4444" }}
+                                title="Usuń zlecenie"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                              className="p-1 rounded-lg hover:opacity-70"
+                              style={{ color: "var(--color-muted)" }}
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       {isExpanded && (
