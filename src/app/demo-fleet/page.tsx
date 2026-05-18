@@ -331,9 +331,15 @@ export default function CompanyVehiclesPage() {
   }
 
   function openEdit(v: CompanyVehicle) {
-    setCategory(v.category ?? "demo");
-    setModel(MG_MODELS.includes(v.model) ? v.model : MG_MODELS[0]);
-    setModelFree(MG_MODELS.includes(v.model) ? "" : v.model);
+    const cat = v.category ?? "demo";
+    setCategory(cat);
+    if (cat === "demo") {
+      setModel(MG_MODELS.includes(v.model) ? v.model : MG_MODELS[0]);
+      setModelFree("");
+    } else {
+      setModel(MG_MODELS[0]);
+      setModelFree(v.model);
+    }
     setColor(v.color);
     setLicensePlate(v.licensePlate);
     setVin(v.vin);
