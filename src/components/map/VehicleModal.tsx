@@ -35,7 +35,7 @@ const MG_MODELS = [
   "MG3", "MG4 EV", "MG S5 EV", "MG S6 EV", "MG S9 PHEV", "CYBERSTER",
 ];
 const COLORS = [
-  "BLACK", "GRAY", "SILVER", "WHITE", "BLUE", "RED", "YELLOW", "ORANGE",
+  "BLACK", "GRAY", "SILVER", "WHITE", "BLUE", "GREEN", "RED", "YELLOW", "ORANGE",
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

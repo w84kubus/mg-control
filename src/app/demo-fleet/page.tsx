@@ -24,7 +24,7 @@ const MG_MODELS = [
 ];
 
 const COLORS = [
-  "BLACK", "GRAY", "SILVER", "WHITE", "BLUE", "RED", "YELLOW", "ORANGE",
+  "BLACK", "GRAY", "SILVER", "WHITE", "BLUE", "GREEN", "RED", "YELLOW", "ORANGE",
 ];
 
 type VehicleCategory = "demo" | "company";
