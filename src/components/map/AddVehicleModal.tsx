@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Plus, AlertCircle, CheckCircle, ScanLine } from "lucide-react";
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { useZonesStore } from "@/store/zonesStore";
@@ -54,6 +54,14 @@ export default function AddVehicleModal({ onClose }: Props) {
     setSaving(true);
     try {
       const upperVin = vin.trim().toUpperCase();
+
+      // Duplicate VIN check
+      const dupSnap = await getDocs(query(collection(db, "vehicles"), where("vin", "==", upperVin)));
+      if (!dupSnap.empty) {
+        toast.error(`Pojazd o VIN ${upperVin.slice(-7)} już istnieje w bazie.`);
+        return;
+      }
+
       const ref = doc(collection(db, "vehicles"));
       await setDoc(ref, {
         id: ref.id,

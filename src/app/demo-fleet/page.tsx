@@ -44,6 +44,31 @@ interface CompanyVehicle {
   updatedAt: Timestamp;
 }
 
+function normalizeModel(raw: string): string {
+  if (MG_MODELS.includes(raw)) return raw;
+  // Strip legacy "MG " prefix (old records stored e.g. "MG MG4 EV")
+  const stripped = raw.startsWith("MG ") ? raw.slice(3) : raw;
+  return MG_MODELS.includes(stripped) ? stripped : MG_MODELS[0];
+}
+
+const COLOR_LEGACY: Record<string, string> = {
+  BIAŁY: "WHITE", BIALY: "WHITE",
+  CZARNY: "BLACK",
+  SZARY: "GRAY",
+  SREBRNY: "SILVER",
+  NIEBIESKI: "BLUE",
+  CZERWONY: "RED",
+  ZIELONY: "GREEN",
+  ŻÓŁTY: "YELLOW", ZOLTY: "YELLOW",
+  "POMARAŃCZOWY": "ORANGE", POMARANCZOWY: "ORANGE",
+};
+
+function normalizeColor(raw: string): string {
+  const upper = raw.toUpperCase();
+  if (COLORS.includes(upper)) return upper;
+  return COLOR_LEGACY[upper] ?? COLORS[0];
+}
+
 const inputCls = "w-full px-3 py-2 rounded-xl text-sm outline-none";
 const inputStyle: React.CSSProperties = {
   background: "var(--bg-primary)",
@@ -334,13 +359,13 @@ export default function CompanyVehiclesPage() {
     const cat = v.category ?? "demo";
     setCategory(cat);
     if (cat === "demo") {
-      setModel(MG_MODELS.includes(v.model) ? v.model : MG_MODELS[0]);
+      setModel(normalizeModel(v.model));
       setModelFree("");
     } else {
       setModel(MG_MODELS[0]);
       setModelFree(v.model);
     }
-    setColor(v.color);
+    setColor(normalizeColor(v.color));
     setLicensePlate(v.licensePlate);
     setVin(v.vin);
     setMileageDate(v.mileageDate ?? "");
